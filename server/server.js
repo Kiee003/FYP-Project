@@ -2,22 +2,32 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 
+// Import routes
+const auditRoutes = require('./routes/auditRoutes');
+
 // Create Express app
 const app = express();
 
 // Define port
 const PORT = 5000;
 
-// Use middleware
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Create a simple route
+// Routes
 app.get('/', (req, res) => {
-    res.json({ message: 'Hello from your server!' });
+    res.json({ 
+        message: 'Web Performance Dashboard API',
+        version: '1.0.0',
+        endpoints: {
+            test: '/api/test',
+            audit: '/api/audit (POST with {url: "https://example.com"})'
+        }
+    });
 });
 
-// Create a test route
+// Test route
 app.get('/api/test', (req, res) => {
     res.json({ 
         status: 'success', 
@@ -26,13 +36,23 @@ app.get('/api/test', (req, res) => {
     });
 });
 
-// Start the server
+// Use audit routes
+app.use('/api', auditRoutes);
+
+// Start server
 app.listen(PORT, () => {
     console.log('=================================');
     console.log('SERVER STARTED SUCCESSFULLY!');
     console.log('=================================');
     console.log(`Listen on: http://localhost:${PORT}`);
     console.log(`Test URL: http://localhost:${PORT}/api/test`);
+    console.log(`Audit URL: POST to http://localhost:${PORT}/api/audit`);
+    console.log('=================================');
+    console.log('📝 To test audit:');
+    console.log('   Use Postman or curl:');
+    console.log('   curl -X POST http://localhost:5000/api/audit \\');
+    console.log('   -H "Content-Type: application/json" \\');
+    console.log('   -d "{\\"url\\":\\"https://example.com\\"}"');
     console.log('=================================');
     console.log('Press Ctrl+C to stop the server');
 });

@@ -2,58 +2,57 @@ const express = require('express');
 const router = express.Router();
 const lighthouseService = require('../lighthouseService');
 
-// Simple validation function
+// Simple URL validation
 function isValidUrl(url) {
     try {
         new URL(url);
-        return true;
+        return url.startsWith('http://') || url.startsWith('https://');
     } catch {
         return false;
     }
 }
 
-// POST /api/audit - Run Lighthouse audit
 router.post('/audit', async (req, res) => {
+    console.log('📨 ========================================');
     console.log('📨 Received audit request');
+    console.log('📨 URL:', req.body.url);
+    console.log('📨 ========================================');
     
     try {
         const { url } = req.body;
         
-        // Check if URL was provided
         if (!url) {
-            console.log('❌ No URL provided');
             return res.status(400).json({ 
                 success: false, 
                 error: 'URL is required' 
             });
         }
 
-        // Validate URL format
         if (!isValidUrl(url)) {
-            console.log('❌ Invalid URL format:', url);
             return res.status(400).json({ 
                 success: false, 
-                error: 'Invalid URL format. Please include http:// or https://' 
+                error: 'Invalid URL. Must start with http:// or https://' 
             });
         }
 
         console.log('✅ URL validated:', url);
-
+        
         // Run the audit
         const results = await lighthouseService.runAudit(url);
         
-        // Send results back
         console.log('📤 Sending results to client');
+        console.log('📤 Performance score:', results.scores.performance);
+        
         res.json({
             success: true,
             data: results
         });
 
     } catch (error) {
-        console.error('❌ Audit route error:', error.message);
+        console.error('❌ Audit failed:', error.message);
         res.status(500).json({ 
             success: false, 
-            error: 'Failed to run performance audit: ' + error.message 
+            error: error.message || 'Failed to run performance audit'
         });
     }
 });

@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const lighthouseService = require('../lighthouseService');
+const auditQueue = require('../auditQueue'); // Add this
 
 // Simple URL validation
 function isValidUrl(url) {
@@ -11,6 +12,22 @@ function isValidUrl(url) {
         return false;
     }
 }
+
+// Add health check endpoint
+router.get('/health', async (req, res) => {
+    try {
+        const health = await lighthouseService.healthCheck();
+        res.json({
+            success: true,
+            data: health
+        });
+    } catch (error) {
+        res.json({
+            success: false,
+            data: { status: 'unhealthy', message: error.message }
+        });
+    }
+});
 
 router.post('/audit', async (req, res) => {
     console.log('📨 ========================================');
@@ -37,8 +54,10 @@ router.post('/audit', async (req, res) => {
 
         console.log('✅ URL validated:', url);
         
-        // Run the audit
-        const results = await lighthouseService.runAudit(url);
+        // Add to queue instead of running immediately
+        const results = await auditQueue.add(url, async (auditUrl) => {
+            return await lighthouseService.runAudit(auditUrl);
+        });
         
         console.log('📤 Sending results to client');
         console.log('📤 Performance score:', results.scores.performance);

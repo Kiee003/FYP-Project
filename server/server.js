@@ -1,6 +1,10 @@
 const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
+const path = require('path');
+
+// Load environment variables
+dotenv.config({ path: path.resolve(__dirname, '.env') });
 
 // Import routes
 const auditRoutes = require('./routes/auditRoutes');
@@ -8,8 +12,8 @@ const auditRoutes = require('./routes/auditRoutes');
 // Create Express app
 const app = express();
 
-// Define port
-const PORT = 5000;
+// Define port from env or default to 5000
+const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors());
@@ -50,7 +54,7 @@ app.listen(PORT, () => {
     console.log('=================================');
     console.log('📝 To test audit:');
     console.log('   Use Postman or curl:');
-    console.log('   curl -X POST http://localhost:5000/api/audit \\');
+    console.log('   curl -X POST http://localhost:${PORT}/api/audit \\');
     console.log('   -H "Content-Type: application/json" \\');
     console.log('   -d "{\\"url\\":\\"https://example.com\\"}"');
     console.log('=================================');

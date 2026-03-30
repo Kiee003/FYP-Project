@@ -22,25 +22,26 @@ const Dashboard = () => {
         setError(null);
         setResults(null);
 
-        // Set a timer to show "taking longer than expected" message
-        const timeoutWarning = setTimeout(() => {
+        // Show a friendly message for long audits
+        const loadingMessage = setTimeout(() => {
             if (loading) {
-                setError('This website is complex and taking longer than expected. Still working on it...');
+                console.log('⏳ Audit taking longer than expected...');
             }
-        }, 15000); // Show warning after 15 seconds
+        }, 10000);
 
         try {
             const response = await runAudit(url);
-            
-            clearTimeout(timeoutWarning);
+            clearTimeout(loadingMessage);
             
             if (response.success) {
                 setResults(response.data);
+                // Optional: Show a toast/success message
+                console.log('✅ Audit complete!');
             } else {
                 setError(response.error || 'Audit failed');
             }
         } catch (err) {
-            clearTimeout(timeoutWarning);
+            clearTimeout(loadingMessage);
             setError(err.message || 'Failed to connect to server');
         } finally {
             setLoading(false);

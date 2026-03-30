@@ -169,3 +169,5 @@ class LighthouseService {
         }
     }
 }
+
+module.exports = new LighthouseService();

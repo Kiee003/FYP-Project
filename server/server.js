@@ -43,20 +43,35 @@ app.get('/api/test', (req, res) => {
 // Use audit routes
 app.use('/api', auditRoutes);
 
+// Graceful shutdown
+const gracefulShutdown = async () => {
+    console.log('\n🛑 Received shutdown signal, closing gracefully...');
+    
+    // Close any open connections if needed
+    server.close(() => {
+        console.log('✅ HTTP server closed');
+        process.exit(0);
+    });
+    
+    // Force close after 10 seconds if needed
+    setTimeout(() => {
+        console.error('⚠️ Forced shutdown after timeout');
+        process.exit(1);
+    }, 10000);
+};
+
+// Handle shutdown signals
+process.on('SIGINT', gracefulShutdown);
+process.on('SIGTERM', gracefulShutdown);
+
 // Start server
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
     console.log('=================================');
     console.log('SERVER STARTED SUCCESSFULLY!');
     console.log('=================================');
     console.log(`Listen on: http://localhost:${PORT}`);
     console.log(`Test URL: http://localhost:${PORT}/api/test`);
     console.log(`Audit URL: POST to http://localhost:${PORT}/api/audit`);
-    console.log('=================================');
-    console.log('📝 To test audit:');
-    console.log('   Use Postman or curl:');
-    console.log('   curl -X POST http://localhost:${PORT}/api/audit \\');
-    console.log('   -H "Content-Type: application/json" \\');
-    console.log('   -d "{\\"url\\":\\"https://example.com\\"}"');
     console.log('=================================');
     console.log('Press Ctrl+C to stop the server');
 });

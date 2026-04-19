@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const dotenv = require('dotenv');
 const path = require('path');
+const database = require('./database');
 
 // Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '.env') });
@@ -46,8 +47,7 @@ app.use('/api', auditRoutes);
 // Graceful shutdown
 const gracefulShutdown = async () => {
     console.log('\n🛑 Received shutdown signal, closing gracefully...');
-    
-    // Close any open connections if needed
+    database.closeDatabase(); // Add this line
     server.close(() => {
         console.log('✅ HTTP server closed');
         process.exit(0);

@@ -3,6 +3,7 @@ import { runAudit } from '../services/api';
 import AIInsights from './AIInsights';
 import './Dashboard.css';
 import LoadingIndicator from './LoadingIndicator';
+import AuditHistory from './AuditHistory';
 
 const Dashboard = () => {
     const [url, setUrl] = useState('');
@@ -161,6 +162,9 @@ const Dashboard = () => {
                         loading={loading}
                         error={null}
                     />
+
+                    {/* Audit History Component */}
+                    <AuditHistory url={results.url} />
                 </div>
             )}
         </div>

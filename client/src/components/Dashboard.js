@@ -4,6 +4,7 @@ import AIInsights from './AIInsights';
 import './Dashboard.css';
 import LoadingIndicator from './LoadingIndicator';
 import AuditHistory from './AuditHistory';
+import UrlCrawler from './UrlCrawler';
 
 const Dashboard = () => {
     const [url, setUrl] = useState('');
@@ -23,7 +24,6 @@ const Dashboard = () => {
         setError(null);
         setResults(null);
 
-        // Show a friendly message for long audits
         const loadingMessage = setTimeout(() => {
             if (loading) {
                 console.log('⏳ Audit taking longer than expected...');
@@ -36,7 +36,6 @@ const Dashboard = () => {
             
             if (response.success) {
                 setResults(response.data);
-                // Optional: Show a toast/success message
                 console.log('✅ Audit complete!');
             } else {
                 setError(response.error || 'Audit failed');
@@ -51,7 +50,7 @@ const Dashboard = () => {
 
     const formatTime = (ms) => {
         if (ms === undefined || ms === null) return 'N/A';
-        if (ms === 0) return '0.00s'; // Show 0.00s for very fast responses
+        if (ms === 0) return '0.00s';
         return (ms / 1000).toFixed(2) + 's';
     };
 
@@ -163,8 +162,10 @@ const Dashboard = () => {
                         error={null}
                     />
 
-                    {/* Audit History Component */}
                     <AuditHistory url={results.url} />
+                    
+                    {/* NEW: Smart URL Crawler */}
+                    <UrlCrawler />
                 </div>
             )}
         </div>

@@ -175,7 +175,7 @@ const getStatistics = () => {
     return stmt.get();
 };
 
-// Close the database connection (call this when your app shuts down)
+// Close the database connection
 const closeDatabase = () => {
     db.close();
     console.log('👋 Database connection closed');
@@ -189,5 +189,6 @@ module.exports = {
     getAllWebsites,
     deleteAudit,
     getStatistics,
-    closeDatabase
+    closeDatabase,
+    db  // <-- EXPORT DATABASE CONNECTION
 };

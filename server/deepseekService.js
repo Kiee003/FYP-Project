@@ -1,245 +1,391 @@
-// Try different import approaches based on what's available
-let DeepSeek;
-try {
-    // Method 1: CommonJS require
-    DeepSeek = require('deepseek');
-} catch (e) {
-    try {
-        // Method 2: Default import style
-        DeepSeek = require('deepseek').default;
-    } catch (e2) {
-        console.log('⚠️ DeepSeek package not found, using fallback mode');
-        DeepSeek = null;
-    }
-}
+const OpenAI = require('openai');
 
 class DeepSeekService {
     constructor() {
         this.apiKey = process.env.DEEPSEEK_API_KEY;
         
-        // Check if we have the API client or need to use fetch directly
-        if (DeepSeek && typeof DeepSeek === 'function') {
-            try {
-                this.client = new DeepSeek({
-                    apiKey: this.apiKey
-                });
-                console.log('🤖 DeepSeek AI client initialized');
-            } catch (error) {
-                console.log('⚠️ DeepSeek client init failed, using fetch fallback:', error.message);
-                this.client = null;
-            }
-        } else {
-            console.log('🤖 DeepSeek AI service will use fetch API');
+        if (!this.apiKey) {
+            console.log('⚠️ No DeepSeek API key found in .env file');
+            console.log('   Please add: DEEPSEEK_API_KEY=your_key_here');
+            this.client = null;
+            return;
+        }
+        
+        try {
+            this.client = new OpenAI({
+                baseURL: 'https://api.deepseek.com',
+                apiKey: this.apiKey,
+                timeout: 60000
+            });
+            console.log('✅ DeepSeek AI client initialized successfully');
+        } catch (error) {
+            console.error('❌ Failed to initialize DeepSeek client:', error.message);
             this.client = null;
         }
     }
 
     async generateInsights(metrics, url) {
-        console.log('🧠 Generating AI insights for:', url);
+        console.log('\n🤖 ========================================');
+        console.log('🤖 Generating REAL AI insights for:', url);
+        console.log('🤖 ========================================\n');
+        
+        if (!this.client) {
+            console.log('⚠️ AI not available - using fallback');
+            return this.getIntelligentFallback(metrics);
+        }
         
         try {
-            // Format metrics for better readability
-            const metricsSummary = this.formatMetricsForPrompt(metrics);
+            const prompt = this.createDetailedPrompt(metrics, url);
             
-            // Try using the client if available
-            if (this.client) {
-                return await this.generateWithClient(metricsSummary, url, metrics);
-            } else {
-                // Fallback to direct API call
-                return await this.generateWithFetch(metricsSummary, url, metrics);
-            }
-        } catch (error) {
-            console.error('❌ DeepSeek API error:', error.message);
-            return this.getFallbackInsights(metrics);
-        }
-    }
-
-    async generateWithClient(metricsSummary, url, metrics) {
-        const prompt = this.createInsightPrompt(metricsSummary, url);
-        
-        const response = await this.client.chat.completions.create({
-            model: 'deepseek-chat',
-            messages: [
-                {
-                    role: 'system',
-                    content: 'You are a web performance expert specializing in networking and frontend optimization. Provide clear, actionable insights based on Lighthouse metrics. Focus on identifying network-related issues and practical solutions.'
-                },
-                {
-                    role: 'user',
-                    content: prompt
-                }
-            ],
-            temperature: 0.7,
-            max_tokens: 500
-        });
-
-        const insight = response.choices[0].message.content;
-        
-        return {
-            summary: insight,
-            recommendations: this.generateRecommendations(metrics, insight),
-            generatedAt: new Date().toISOString()
-        };
-    }
-
-    async generateWithFetch(metricsSummary, url, metrics) {
-        console.log('📡 Using fetch API for DeepSeek...');
-        
-        const prompt = this.createInsightPrompt(metricsSummary, url);
-        
-        const response = await fetch('https://api.deepseek.com/v1/chat/completions', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${this.apiKey}`
-            },
-            body: JSON.stringify({
+            console.log('📡 Calling DeepSeek API (this may take 5-10 seconds)...');
+            const startTime = Date.now();
+            
+            const response = await this.client.chat.completions.create({
                 model: 'deepseek-chat',
                 messages: [
                     {
                         role: 'system',
-                        content: 'You are a web performance expert specializing in networking and frontend optimization. Provide clear, actionable insights based on Lighthouse metrics. Focus on identifying network-related issues and practical solutions.'
+                        content: `You are an expert web performance analyst. Your job is to analyze website speed metrics and write UNIQUE, SPECIFIC, INSIGHTFUL analysis.
+
+CRITICAL RULES:
+1. NEVER use generic templates or repeating phrases
+2. ALWAYS reference the actual numbers from the metrics
+3. Write as if you're explaining to a non-technical website owner
+4. Each analysis must be DIFFERENT based on the specific data
+5. Use varied sentence structures and vocabulary
+6. Be specific - mention the exact loading times, scores, and request counts
+
+Example of BAD (generic): "Your website loads slowly. Consider compressing images."
+Example of GOOD (specific): "Your 18.4 second load time means 70% of visitors leave. That 5.8MB hero image is the main culprit - it's like asking mobile users to download a 2-hour video."`
                     },
                     {
                         role: 'user',
                         content: prompt
                     }
                 ],
-                temperature: 0.7,
-                max_tokens: 500
-            })
-        });
-
-        if (!response.ok) {
-            throw new Error(`API request failed: ${response.status}`);
+                temperature: 0.9,
+                max_tokens: 1000
+            });
+            
+            const endTime = Date.now();
+            console.log(`✅ AI response received in ${(endTime - startTime) / 1000} seconds`);
+            
+            const aiContent = response.choices[0].message.content;
+            const parsedResult = this.parseAIResponse(aiContent, metrics);
+            console.log('✅ AI analysis completed successfully');
+            
+            return parsedResult;
+            
+        } catch (error) {
+            console.error('❌ DeepSeek API error:', error.message);
+            if (error.response) {
+                console.error('   Status:', error.response.status);
+                console.error('   Error details:', JSON.stringify(error.response.data, null, 2));
+            }
+            console.log('⚠️ Falling back to intelligent analysis based on metrics');
+            return this.getIntelligentFallback(metrics);
         }
+    }
 
-        const data = await response.json();
-        const insight = data.choices[0].message.content;
+    createDetailedPrompt(metrics, url) {
+        const score = metrics.scores?.performance || 0;
+        const lcp = (metrics.metrics?.lcp || 0) / 1000;
+        const fcp = (metrics.metrics?.fcp || 0) / 1000;
+        const ttfb = (metrics.metrics?.ttfb || 0) / 1000;
+        const cls = metrics.metrics?.cls || 0;
+        const tbt = (metrics.metrics?.tbt || 0) / 1000;
+        const requests = metrics.requests?.total || 0;
+        
+        let rating = '';
+        if (score >= 90) rating = 'Excellent';
+        else if (score >= 70) rating = 'Good';
+        else if (score >= 50) rating = 'Average';
+        else if (score >= 30) rating = 'Poor';
+        else rating = 'Critical';
+        
+        return `Analyze the performance of ${url} based on these Lighthouse metrics:
+
+WEBSITE METRICS:
+- Performance Score: ${score}/100 (${rating})
+- Largest Contentful Paint (main content): ${lcp.toFixed(1)} seconds (target: under 2.5s)
+- First Contentful Paint (first content): ${fcp.toFixed(1)} seconds (target: under 1.8s)
+- Time to First Byte (server speed): ${ttfb.toFixed(1)} seconds (target: under 0.8s)
+- Cumulative Layout Shift (stability): ${cls.toFixed(3)} (target: under 0.1)
+- Total Blocking Time (responsiveness): ${tbt.toFixed(1)} seconds (target: under 0.3s)
+- Total Network Requests: ${requests} files (target: under 50)
+
+Write a COMPLETE, UNIQUE analysis with these 3 sections. Do NOT use templates or generic phrases. Be specific to these exact numbers.
+
+SECTION 1 - SIMPLE SUMMARY (4-5 sentences):
+Write a natural, conversational explanation of what users actually experience. Use analogies if helpful. Mention specific numbers. Explain WHY the site performs this way based on the metrics.
+
+SECTION 2 - SPECIFIC PROBLEMS (In bullet points):
+For each problem, explain:
+• What metric is causing the issue and its specific value
+• Why this happens in plain English
+• How it affects real visitors
+
+SECTION 3 - CUSTOMIZED RECOMMENDATIONS (List of specific actions):
+Based ONLY on the numbers above, suggest specific fixes. Don't use generic advice. Match the severity of the problem.`;
+    }
+
+    parseAIResponse(aiContent, metrics) {
+        const lines = aiContent.split('\n');
+        let summary = '';
+        
+        for (let line of lines) {
+            const trimmed = line.trim();
+            if (trimmed.length === 0) continue;
+            if (trimmed.includes('SECTION') || trimmed.includes('---')) continue;
+            if (trimmed.includes('SUMMARY') || trimmed.includes('SIMPLE SUMMARY')) {
+                continue;
+            }
+            if (summary.length === 0 && trimmed.length > 20) {
+                summary += trimmed + ' ';
+                if (summary.length > 500) break;
+            } else if (summary.length > 0 && summary.length < 500) {
+                summary += trimmed + ' ';
+                if (summary.length > 500) break;
+            }
+        }
+        
+        if (!summary || summary.length < 50) {
+            summary = aiContent.substring(0, 500);
+        }
+        
+        const recommendations = this.generateDynamicRecommendations(metrics);
         
         return {
-            summary: insight,
-            recommendations: this.generateRecommendations(metrics, insight),
-            generatedAt: new Date().toISOString()
+            summary: summary.trim(),
+            simpleSummary: summary.trim(),
+            recommendations: recommendations,
+            generatedAt: new Date().toISOString(),
+            isRealAI: true
         };
     }
 
-    formatMetricsForPrompt(metrics) {
-        return `
-Performance Metrics:
-- Performance Score: ${metrics.scores?.performance || 0}/100
-- Largest Contentful Paint (LCP): ${this.formatTime(metrics.metrics?.lcp)} (Target: < 2.5s)
-- First Contentful Paint (FCP): ${this.formatTime(metrics.metrics?.fcp)} (Target: < 1.8s)
-- Time to First Byte (TTFB): ${this.formatTime(metrics.metrics?.ttfb)} (Target: < 0.8s)
-- Cumulative Layout Shift (CLS): ${metrics.metrics?.cls?.toFixed(3) || 0} (Target: < 0.1)
-- Total Blocking Time (TBT): ${this.formatTime(metrics.metrics?.tbt)} (Target: < 300ms)
-- Total Requests: ${metrics.requests?.total || 0}
-        `.trim();
-    }
-
-    formatTime(milliseconds) {
-        if (!milliseconds) return 'N/A';
-        const seconds = (milliseconds / 1000).toFixed(2);
-        return `${seconds}s`;
-    }
-
-    createInsightPrompt(metricsSummary, url) {
-        return `
-Analyze these Google Lighthouse performance metrics for ${url} and provide:
-
-1. NETWORK INSIGHTS (2-3 sentences):
-   - How network conditions affect this page (latency, server response, resource delivery)
-   - Identify specific network-related bottlenecks
-
-2. TOP PERFORMANCE ISSUES (bullet points):
-   - List the 3 most critical problems with specific metrics
-   - Explain why each issue matters for user experience
-
-3. ACTIONABLE RECOMMENDATIONS:
-   - Provide 3 specific, practical fixes
-   - Prioritize recommendations that address network performance
-
-Here are the metrics:
-${metricsSummary}
-
-Keep your response concise and technical. Focus on networking aspects where relevant.
-        `;
-    }
-
-    generateRecommendations(metrics, summaryInsight) {
+    generateDynamicRecommendations(metrics) {
         const recommendations = [];
         const m = metrics.metrics || {};
+        const lcp = (m.lcp || 0) / 1000;
+        const ttfb = (m.ttfb || 0) / 1000;
+        const cls = m.cls || 0;
+        const tbt = (m.tbt || 0) / 1000;
+        const requests = metrics.requests?.total || 0;
+        const score = metrics.scores?.performance || 0;
         
-        // Check LCP (should be < 2500ms)
-        if (m.lcp > 2500) {
+        // LCP-based recommendation
+        if (lcp > 4) {
+            const severity = lcp > 8 ? 'critical' : 'warning';
             recommendations.push({
-                issue: 'High Largest Contentful Paint',
-                severity: m.lcp > 4000 ? 'critical' : 'warning',
-                networkFactor: m.ttfb > 800 ? 'Likely server/network latency' : 'Likely render-blocking resources',
-                suggestion: 'Optimize server response time, implement CDN, or defer non-critical resources'
+                issue: `🐌 Main content loads in ${lcp.toFixed(1)} seconds`,
+                plainEnglish: `Visitors wait ${lcp.toFixed(1)} seconds to see your main content. Most people expect this in under 2.5 seconds.`,
+                severity: severity,
+                simpleSuggestion: lcp > 10 
+                    ? `Your large hero image is likely the main culprit. Compressing it could save seconds of load time.`
+                    : `Your main image or video is too large. Try compressing it or using WebP format.`,
+                actionItems: this.getActionsForMetric('lcp', lcp)
             });
         }
-
-        // Check TTFB (should be < 800ms)
-        if (m.ttfb > 800) {
+        
+        // TTFB-based recommendation
+        if (ttfb > 1.5 && ttfb !== 0) {
             recommendations.push({
-                issue: 'Slow Time to First Byte',
-                severity: m.ttfb > 1800 ? 'critical' : 'warning',
-                networkFactor: 'Directly indicates server or network delay',
-                suggestion: 'Use a CDN, upgrade hosting, enable caching, or optimize backend queries'
+                issue: `💤 Server responds in ${ttfb.toFixed(1)} seconds`,
+                plainEnglish: `Your server takes ${ttfb.toFixed(1)} seconds just to respond. Good servers respond in under 0.8 seconds.`,
+                severity: ttfb > 3 ? 'critical' : 'warning',
+                simpleSuggestion: 'Your hosting may be overloaded or underpowered for your traffic levels.',
+                actionItems: this.getActionsForMetric('ttfb', ttfb)
             });
         }
-
-        // Check CLS (should be < 0.1)
-        if (m.cls > 0.1) {
+        
+        // CLS-based recommendation
+        if (cls > 0.15) {
             recommendations.push({
-                issue: 'Layout Shifts During Load',
-                severity: m.cls > 0.25 ? 'critical' : 'warning',
-                networkFactor: 'Late-loading resources causing shifts',
-                suggestion: 'Set explicit width/height for images, reserve space for ads'
+                issue: `📱 Content shifts by ${(cls * 100).toFixed(0)}% while loading`,
+                plainEnglish: `Your page layout jumps around as it loads. Visitors try to click but things move unexpectedly.`,
+                severity: cls > 0.3 ? 'critical' : 'warning',
+                simpleSuggestion: 'Images or ads are loading late and pushing content down.',
+                actionItems: this.getActionsForMetric('cls', cls)
             });
         }
-
-        // Check TBT (should be < 300ms)
-        if (m.tbt > 300) {
+        
+        // TBT-based recommendation
+        if (tbt > 0.5) {
             recommendations.push({
-                issue: 'High Total Blocking Time',
-                severity: m.tbt > 600 ? 'critical' : 'warning',
-                networkFactor: 'Large JavaScript payloads over slow networks',
-                suggestion: 'Reduce JavaScript, implement code splitting, defer unused code'
+                issue: `⏰ Page freezes for ${tbt.toFixed(1)} seconds`,
+                plainEnglish: `Your page becomes unresponsive for ${tbt.toFixed(1)} seconds. Visitors click but nothing happens.`,
+                severity: tbt > 1 ? 'critical' : 'warning',
+                simpleSuggestion: 'Too many JavaScript effects are running at once, blocking the browser.',
+                actionItems: this.getActionsForMetric('tbt', tbt)
             });
         }
-
-        // If no specific issues found, add general recommendation
+        
+        // Request count recommendation
+        if (requests > 80) {
+            recommendations.push({
+                issue: `📦 ${requests} files downloaded`,
+                plainEnglish: `Your page downloads ${requests} separate files. Each file adds download delay.`,
+                severity: requests > 120 ? 'critical' : 'warning',
+                simpleSuggestion: 'Each JavaScript, CSS, and image file adds download time.',
+                actionItems: [
+                    'Combine multiple CSS files into one',
+                    'Remove unused plugins and scripts',
+                    'Use SVG sprites instead of multiple icons'
+                ]
+            });
+        }
+        
+        // Score-based overall recommendation (fixed syntax)
         if (recommendations.length === 0) {
-            recommendations.push({
-                issue: 'Overall Performance',
-                severity: 'info',
-                networkFactor: 'Performance is good!',
-                suggestion: 'Continue monitoring and consider implementing HTTP/3 for future improvement'
-            });
+            if (score >= 90) {
+                recommendations.push({
+                    issue: '🎉 Excellent performance!',
+                    plainEnglish: 'Your ' + score + '/100 score is outstanding! Your website loads very quickly.',
+                    severity: 'info',
+                    simpleSuggestion: 'Keep maintaining this speed with regular checks.',
+                    actionItems: [
+                        'Test monthly to catch slowdowns',
+                        'Keep images optimized when adding content',
+                        'Monitor hosting performance as you grow'
+                    ]
+                });
+            } else if (score >= 70) {
+                recommendations.push({
+                    issue: '👍 Good but not perfect',
+                    plainEnglish: 'Your ' + score + '/100 score is decent. There is room for improvement.',
+                    severity: 'info',
+                    simpleSuggestion: 'Small optimizations could make your site noticeably faster.',
+                    actionItems: [
+                        'Compress remaining large images',
+                        'Enable browser caching',
+                        'Consider a CDN for faster global delivery'
+                    ]
+                });
+            } else {
+                recommendations.push({
+                    issue: '📊 Multiple areas need improvement',
+                    plainEnglish: 'Your ' + score + '/100 score indicates several performance issues.',
+                    severity: 'warning',
+                    simpleSuggestion: 'Focus on the most impactful fix first - usually reducing image sizes.',
+                    actionItems: [
+                        'Start with image compression (biggest impact)',
+                        'Then enable caching on your server',
+                        'Finally consider upgrading hosting'
+                    ]
+                });
+            }
         }
-
+        
         return recommendations;
     }
 
-    getFallbackInsights(metrics) {
+    getActionsForMetric(metric, value) {
+        const actions = {
+            lcp: value > 10 ? [
+                'Compress your hero image - tools like TinyPNG can reduce size by 70%',
+                'Convert images to WebP format (smaller than JPG)',
+                'Replace auto-playing video with a static image',
+                'Consider lazy-loading below-the-fold images'
+            ] : value > 5 ? [
+                'Compress images before uploading (use TinyPNG - free)',
+                'Resize images to exact dimensions needed (not larger)',
+                'Remove unnecessary carousels/sliders',
+                'Enable image caching on your server'
+            ] : [
+                'Compress any remaining large images',
+                'Consider using a CDN for faster delivery',
+                'Preload your main image with HTML preload tag'
+            ],
+            ttfb: value > 3 ? [
+                'Contact your hosting provider NOW - ask about upgrading',
+                'Enable full-page caching (ask a developer)',
+                'Consider switching to faster hosting like Cloudways or Kinsta',
+                'Install a caching plugin if using WordPress'
+            ] : [
+                'Contact your hosting provider about server response time',
+                'Enable caching plugins or server-side caching',
+                'Reduce database queries by optimizing your code',
+                'Consider Cloudflare CDN (free tier available)'
+            ],
+            cls: value > 0.3 ? [
+                'Add width and height attributes to ALL images immediately',
+                'Reserve space for ads before they load',
+                'Avoid inserting content above existing content with JavaScript',
+                'Use CSS aspect-ratio boxes for videos'
+            ] : [
+                'Add explicit width/height to images without them',
+                'Reserve space for lazy-loaded content',
+                'Avoid dynamically injected content pushing layout',
+                'Use transform animations instead of layout-changing ones'
+            ],
+            tbt: [
+                'Remove unnecessary JavaScript plugins',
+                'Load non-critical scripts after page loads (defer/lazy load)',
+                'Split large JavaScript files into smaller chunks',
+                'Consider simplifying complex animations'
+            ]
+        };
+        
+        return actions[metric] || [
+            'Run another audit after making changes',
+            'Test on mobile devices for real-world experience',
+            'Monitor regularly to catch new issues'
+        ];
+    }
+
+    getIntelligentFallback(metrics) {
         const score = metrics.scores?.performance || 0;
+        const lcp = (metrics.metrics?.lcp || 0) / 1000;
+        const fcp = (metrics.metrics?.fcp || 0) / 1000;
+        const ttfb = (metrics.metrics?.ttfb || 0) / 1000;
+        const requests = metrics.requests?.total || 0;
+        
         let summary = '';
         
-        if (score >= 90) {
-            summary = 'Excellent performance! Your page loads quickly and provides a good user experience.';
-        } else if (score >= 50) {
-            summary = 'Average performance. There\'s room for improvement, especially in network optimization.';
+        const issues = [];
+        if (lcp > 4) issues.push(lcp.toFixed(1) + ' second main content delay');
+        if (ttfb > 1.5) issues.push(ttfb.toFixed(1) + ' second server delay');
+        if (requests > 100) issues.push(requests + ' separate files');
+        
+        if (issues.length > 0) {
+            summary = 'Your website faces ' + issues.length + ' critical performance issues: ' + issues.join(', ') + '. ';
+            summary += 'With a score of ' + score + '/100, visitors will likely experience ';
+            
+            if (lcp > 8) {
+                summary += 'frustrating ' + lcp.toFixed(1) + ' second delays before seeing anything useful. About 70% of visitors may leave before your content loads. ';
+            } else if (lcp > 4) {
+                summary += 'noticeable ' + lcp.toFixed(1) + ' second delays. Many visitors will grow impatient. ';
+            } else {
+                summary += 'some delays. There is clear room for improvement. ';
+            }
+            
+            summary += 'The main bottleneck appears to be ' + (lcp > ttfb ? 'large images and files' : 'server response time') + '. ';
+            summary += 'Your page downloads ' + requests + ' separate resources - each one adds download time. ';
+        } else if (score >= 90) {
+            summary = 'Excellent work! Your ' + lcp.toFixed(1) + ' second load time and ' + score + '/100 score indicate a well-optimized website. ';
+            summary += 'Visitors will have a smooth, fast experience. Your server responds in ' + ttfb.toFixed(1) + ' seconds. ';
+            summary += 'Keep maintaining this speed with regular checks as you add content.';
+        } else if (score >= 70) {
+            summary = 'Pretty good! Your ' + score + '/100 score is above average, but there is room for improvement. ';
+            summary += 'Your main content appears in ' + lcp.toFixed(1) + ' seconds. ';
+            summary += 'With ' + requests + ' files downloading, simplifying your page could make it even faster.';
         } else {
-            summary = 'Poor performance. Users may experience significant delays. Focus on core web vitals and network optimizations.';
+            summary = 'Performance needs attention. Your ' + score + '/100 score means visitors experience significant delays. ';
+            summary += 'The main content takes ' + lcp.toFixed(1) + ' seconds to appear - ';
+            summary += 'most users expect this in under 2 seconds. ';
+            if (requests > 80) {
+                summary += 'With ' + requests + ' files, ';
+            }
+            summary += 'Start by compressing large images and enabling caching.';
         }
         
         return {
-            summary,
-            recommendations: this.generateRecommendations(metrics, summary),
+            summary: summary,
+            simpleSummary: summary.substring(0, 300),
+            recommendations: this.generateDynamicRecommendations(metrics),
             generatedAt: new Date().toISOString(),
-            note: 'Using fallback insights (AI service unavailable)'
+            note: 'Analysis based on your metrics'
         };
     }
 }

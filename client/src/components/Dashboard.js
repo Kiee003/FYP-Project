@@ -5,6 +5,7 @@ import './Dashboard.css';
 import LoadingIndicator from './LoadingIndicator';
 import AuditHistory from './AuditHistory';
 import UrlCrawler from './UrlCrawler';
+import UserMenu from './UserMenu';   // ← ADD THIS
 
 const Dashboard = () => {
     const [url, setUrl] = useState('');
@@ -14,7 +15,7 @@ const Dashboard = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         if (!url.trim()) {
             setError('Please enter a URL');
             return;
@@ -25,18 +26,14 @@ const Dashboard = () => {
         setResults(null);
 
         const loadingMessage = setTimeout(() => {
-            if (loading) {
-                console.log('⏳ Audit taking longer than expected...');
-            }
+            if (loading) console.log('⏳ Audit taking longer than expected...');
         }, 10000);
 
         try {
             const response = await runAudit(url);
             clearTimeout(loadingMessage);
-            
             if (response.success) {
                 setResults(response.data);
-                console.log('✅ Audit complete!');
             } else {
                 setError(response.error || 'Audit failed');
             }
@@ -54,10 +51,9 @@ const Dashboard = () => {
         return (ms / 1000).toFixed(2) + 's';
     };
 
-    // Enhanced color coding with status labels
     const getMetricStatus = (metric, value) => {
         if (!value && value !== 0) return { color: '#999', status: 'No Data', icon: '❓' };
-        
+
         switch(metric) {
             case 'performance_score':
                 if (value >= 90) return { color: '#28a745', status: 'Excellent', icon: '🎉', bg: '#d4edda' };
@@ -65,33 +61,27 @@ const Dashboard = () => {
                 if (value >= 50) return { color: '#ffc107', status: 'Needs Improvement', icon: '⚠️', bg: '#fff3cd' };
                 if (value >= 30) return { color: '#fd7e14', status: 'Poor', icon: '🔴', bg: '#ffe5d0' };
                 return { color: '#dc3545', status: 'Critical', icon: '🚨', bg: '#f8d7da' };
-            
             case 'lcp':
                 if (value < 2500) return { color: '#28a745', status: 'Good', icon: '✅', bg: '#d4edda' };
                 if (value < 4000) return { color: '#ffc107', status: 'Needs Improvement', icon: '⚠️', bg: '#fff3cd' };
                 return { color: '#dc3545', status: 'Poor', icon: '🔴', bg: '#f8d7da' };
-            
             case 'fcp':
                 if (value < 1800) return { color: '#28a745', status: 'Good', icon: '✅', bg: '#d4edda' };
                 if (value < 3000) return { color: '#ffc107', status: 'Needs Improvement', icon: '⚠️', bg: '#fff3cd' };
                 return { color: '#dc3545', status: 'Poor', icon: '🔴', bg: '#f8d7da' };
-            
             case 'ttfb':
                 if (value === 0) return { color: '#999', status: 'Not Measured', icon: '❓', bg: '#e9ecef' };
                 if (value < 800) return { color: '#28a745', status: 'Good', icon: '✅', bg: '#d4edda' };
                 if (value < 1800) return { color: '#ffc107', status: 'Needs Improvement', icon: '⚠️', bg: '#fff3cd' };
                 return { color: '#dc3545', status: 'Poor', icon: '🔴', bg: '#f8d7da' };
-            
             case 'cls':
                 if (value < 0.1) return { color: '#28a745', status: 'Good', icon: '✅', bg: '#d4edda' };
                 if (value < 0.25) return { color: '#ffc107', status: 'Needs Improvement', icon: '⚠️', bg: '#fff3cd' };
                 return { color: '#dc3545', status: 'Poor', icon: '🔴', bg: '#f8d7da' };
-            
             case 'tbt':
                 if (value < 300) return { color: '#28a745', status: 'Good', icon: '✅', bg: '#d4edda' };
                 if (value < 600) return { color: '#ffc107', status: 'Needs Improvement', icon: '⚠️', bg: '#fff3cd' };
                 return { color: '#dc3545', status: 'Poor', icon: '🔴', bg: '#f8d7da' };
-            
             default:
                 return { color: '#28a745', status: 'OK', icon: '✅', bg: '#d4edda' };
         }
@@ -99,11 +89,17 @@ const Dashboard = () => {
 
     return (
         <div className="dashboard">
+            {/* Header — now has UserMenu on the right */}
             <div className="dashboard-header">
-                <h1>🚀 Web Performance Dashboard</h1>
-                <p>Enter a URL to analyze performance with AI-powered insights</p>
+                <div className="header-top">
+                    <div className="header-title">
+                        <h1>🚀 Web Performance Dashboard</h1>
+                        <p>Enter a URL to analyse performance with AI-powered insights</p>
+                    </div>
+                    <UserMenu />   {/* ← ADD THIS */}
+                </div>
             </div>
-            
+
             <form onSubmit={handleSubmit} className="url-form">
                 <input
                     type="text"
@@ -117,18 +113,14 @@ const Dashboard = () => {
                 </button>
             </form>
 
-            {error && (
-                <div className="error-message">
-                    ❌ {error}
-                </div>
-            )}
+            {error && <div className="error-message">❌ {error}</div>}
 
             {loading && <LoadingIndicator message="Analyzing website performance..." />}
 
             {results && (
                 <div className="results">
                     <div className="metrics-grid">
-                        {/* Performance Score - Special circular card */}
+                        {/* Performance Score */}
                         <div className="metric-card score-card">
                             <h3>Performance Score</h3>
                             {(() => {
@@ -148,7 +140,7 @@ const Dashboard = () => {
                             })()}
                         </div>
 
-                        {/* LCP Card */}
+                        {/* LCP */}
                         <div className="metric-card">
                             <h3>LCP</h3>
                             {(() => {
@@ -168,7 +160,7 @@ const Dashboard = () => {
                             })()}
                         </div>
 
-                        {/* FCP Card */}
+                        {/* FCP */}
                         <div className="metric-card">
                             <h3>FCP</h3>
                             {(() => {
@@ -188,7 +180,7 @@ const Dashboard = () => {
                             })()}
                         </div>
 
-                        {/* TTFB Card */}
+                        {/* TTFB */}
                         <div className="metric-card">
                             <h3>TTFB</h3>
                             {(() => {
@@ -208,7 +200,7 @@ const Dashboard = () => {
                             })()}
                         </div>
 
-                        {/* CLS Card */}
+                        {/* CLS */}
                         <div className="metric-card">
                             <h3>CLS</h3>
                             {(() => {
@@ -228,7 +220,7 @@ const Dashboard = () => {
                             })()}
                         </div>
 
-                        {/* TBT Card */}
+                        {/* TBT */}
                         <div className="metric-card">
                             <h3>TBT</h3>
                             {(() => {
@@ -248,17 +240,17 @@ const Dashboard = () => {
                             })()}
                         </div>
 
-                        {/* Requests Card */}
+                        {/* Requests */}
                         <div className="metric-card">
                             <h3>Requests</h3>
                             <div className="metric-value" style={{ fontSize: '28px', fontWeight: 'bold', color: results.requests.total > 100 ? '#ffc107' : '#28a745' }}>
                                 {results.requests.total}
                             </div>
-                            <div className="metric-status" style={{ 
+                            <div className="metric-status" style={{
                                 backgroundColor: results.requests.total > 100 ? '#fff3cd' : '#d4edda',
                                 color: results.requests.total > 100 ? '#ffc107' : '#28a745'
                             }}>
-                                <span>{results.requests.total > 100 ? '⚠️' : '✅'}</span> 
+                                <span>{results.requests.total > 100 ? '⚠️' : '✅'}</span>
                                 {results.requests.total > 100 ? 'High' : 'Normal'}
                             </div>
                             <p className="metric-label">Total Network Requests</p>
@@ -266,14 +258,8 @@ const Dashboard = () => {
                         </div>
                     </div>
 
-                    <AIInsights 
-                        insights={results.aiInsights}
-                        loading={loading}
-                        error={null}
-                    />
-
+                    <AIInsights insights={results.aiInsights} loading={loading} error={null} />
                     <AuditHistory url={results.url} />
-                    
                     <UrlCrawler />
                 </div>
             )}

@@ -3,14 +3,14 @@ const OpenAI = require('openai');
 class DeepSeekService {
     constructor() {
         this.apiKey = process.env.DEEPSEEK_API_KEY;
-        
+
         if (!this.apiKey) {
             console.log('⚠️ No DeepSeek API key found in .env file');
             console.log('   Please add: DEEPSEEK_API_KEY=your_key_here');
             this.client = null;
             return;
         }
-        
+
         try {
             this.client = new OpenAI({
                 baseURL: 'https://api.deepseek.com',
@@ -28,54 +28,69 @@ class DeepSeekService {
         console.log('\n🤖 ========================================');
         console.log('🤖 Generating REAL AI insights for:', url);
         console.log('🤖 ========================================\n');
-        
+
         if (!this.client) {
             console.log('⚠️ AI not available - using fallback');
             return this.getIntelligentFallback(metrics);
         }
-        
+
         try {
             const prompt = this.createDetailedPrompt(metrics, url);
-            
+
             console.log('📡 Calling DeepSeek API (this may take 5-10 seconds)...');
             const startTime = Date.now();
-            
+
             const response = await this.client.chat.completions.create({
                 model: 'deepseek-chat',
                 messages: [
                     {
                         role: 'system',
-                        content: `You are an expert web performance analyst. Your job is to analyze website speed metrics and write UNIQUE, SPECIFIC, INSIGHTFUL analysis.
+                        content: `You are a web performance expert giving honest, direct feedback to a website owner.
 
-CRITICAL RULES:
-1. NEVER use generic templates or repeating phrases
-2. ALWAYS reference the actual numbers from the metrics
-3. Write as if you're explaining to a non-technical website owner
-4. Each analysis must be DIFFERENT based on the specific data
-5. Use varied sentence structures and vocabulary
-6. Be specific - mention the exact loading times, scores, and request counts
+RULES:
+- Be specific — always reference the exact numbers given to you
+- Write naturally, like you're talking to a non-technical person
+- If something is genuinely good, say so; if it is bad, be direct about the real-world impact
+- Do NOT use generic advice like "compress images" unless the metrics actually show an image problem
+- Every analysis must reflect the specific numbers, not a template
 
-Example of BAD (generic): "Your website loads slowly. Consider compressing images."
-Example of GOOD (specific): "Your 18.4 second load time means 70% of visitors leave. That 5.8MB hero image is the main culprit - it's like asking mobile users to download a 2-hour video."`
+You must respond ONLY with a valid JSON object. No preamble, no markdown fences, no explanation outside the JSON.
+
+The JSON must follow this exact structure:
+{
+  "summary": "3-4 paragraph honest analysis of what these metrics mean for real visitors. Reference exact numbers. Explain the cause, not just the symptom.",
+  "verdict": "One sentence overall verdict, e.g. 'This site is fast and well-optimised.' or 'This site will frustrate most visitors.'",
+  "recommendations": [
+    {
+      "issue": "Short title of the problem",
+      "severity": "critical | warning | info",
+      "plainEnglish": "What this means for a real visitor in 1-2 sentences",
+      "simpleSuggestion": "The single most impactful fix for this specific metric value",
+      "actionItems": ["Specific step 1", "Specific step 2", "Specific step 3"]
+    }
+  ]
+}
+
+The recommendations array should contain ONLY issues that are actually present in the metrics. If the site performs well on a metric, do not include it as a problem. Maximum 4 recommendations.`
                     },
                     {
                         role: 'user',
                         content: prompt
                     }
                 ],
-                temperature: 0.9,
-                max_tokens: 1000
+                temperature: 0.8,
+                max_tokens: 1500
             });
-            
+
             const endTime = Date.now();
             console.log(`✅ AI response received in ${(endTime - startTime) / 1000} seconds`);
-            
+
             const aiContent = response.choices[0].message.content;
-            const parsedResult = this.parseAIResponse(aiContent, metrics);
+            const parsedResult = this.parseAIResponse(aiContent);
             console.log('✅ AI analysis completed successfully');
-            
+
             return parsedResult;
-            
+
         } catch (error) {
             console.error('❌ DeepSeek API error:', error.message);
             if (error.response) {
@@ -95,243 +110,64 @@ Example of GOOD (specific): "Your 18.4 second load time means 70% of visitors le
         const cls = metrics.metrics?.cls || 0;
         const tbt = (metrics.metrics?.tbt || 0) / 1000;
         const requests = metrics.requests?.total || 0;
-        
+
         let rating = '';
         if (score >= 90) rating = 'Excellent';
         else if (score >= 70) rating = 'Good';
         else if (score >= 50) rating = 'Average';
         else if (score >= 30) rating = 'Poor';
         else rating = 'Critical';
-        
-        return `Analyze the performance of ${url} based on these Lighthouse metrics:
 
-WEBSITE METRICS:
-- Performance Score: ${score}/100 (${rating})
-- Largest Contentful Paint (main content): ${lcp.toFixed(1)} seconds (target: under 2.5s)
-- First Contentful Paint (first content): ${fcp.toFixed(1)} seconds (target: under 1.8s)
-- Time to First Byte (server speed): ${ttfb.toFixed(1)} seconds (target: under 0.8s)
-- Cumulative Layout Shift (stability): ${cls.toFixed(3)} (target: under 0.1)
-- Total Blocking Time (responsiveness): ${tbt.toFixed(1)} seconds (target: under 0.3s)
-- Total Network Requests: ${requests} files (target: under 50)
+        return `Here are the real Lighthouse audit results for ${url}:
 
-Write a COMPLETE, UNIQUE analysis with these 3 sections. Do NOT use templates or generic phrases. Be specific to these exact numbers.
+Performance Score: ${score}/100 (${rating})
+Largest Contentful Paint (LCP): ${lcp.toFixed(2)}s — target under 2.5s
+First Contentful Paint (FCP): ${fcp.toFixed(2)}s — target under 1.8s
+Time to First Byte (TTFB): ${ttfb === 0 ? 'Not measured' : ttfb.toFixed(2) + 's — target under 0.8s'}
+Cumulative Layout Shift (CLS): ${cls.toFixed(3)} — target under 0.1
+Total Blocking Time (TBT): ${tbt.toFixed(2)}s — target under 0.3s
+Total Network Requests: ${requests} — target under 50
 
-SECTION 1 - SIMPLE SUMMARY (4-5 sentences):
-Write a natural, conversational explanation of what users actually experience. Use analogies if helpful. Mention specific numbers. Explain WHY the site performs this way based on the metrics.
-
-SECTION 2 - SPECIFIC PROBLEMS (In bullet points):
-For each problem, explain:
-• What metric is causing the issue and its specific value
-• Why this happens in plain English
-• How it affects real visitors
-
-SECTION 3 - CUSTOMIZED RECOMMENDATIONS (List of specific actions):
-Based ONLY on the numbers above, suggest specific fixes. Don't use generic advice. Match the severity of the problem.`;
+Analyse these results honestly. Only flag metrics that are actually failing their targets. If the site does well on something, acknowledge it. Be specific to these exact numbers.`;
     }
 
-    parseAIResponse(aiContent, metrics) {
-        const lines = aiContent.split('\n');
-        let summary = '';
-        
-        for (let line of lines) {
-            const trimmed = line.trim();
-            if (trimmed.length === 0) continue;
-            if (trimmed.includes('SECTION') || trimmed.includes('---')) continue;
-            if (trimmed.includes('SUMMARY') || trimmed.includes('SIMPLE SUMMARY')) {
-                continue;
-            }
-            if (summary.length === 0 && trimmed.length > 20) {
-                summary += trimmed + ' ';
-                if (summary.length > 500) break;
-            } else if (summary.length > 0 && summary.length < 500) {
-                summary += trimmed + ' ';
-                if (summary.length > 500) break;
-            }
-        }
-        
-        if (!summary || summary.length < 50) {
-            summary = aiContent.substring(0, 500);
-        }
-        
-        const recommendations = this.generateDynamicRecommendations(metrics);
-        
-        return {
-            summary: summary.trim(),
-            simpleSummary: summary.trim(),
-            recommendations: recommendations,
-            generatedAt: new Date().toISOString(),
-            isRealAI: true
-        };
-    }
+    parseAIResponse(aiContent) {
+        try {
+            // Strip markdown fences if present
+            const clean = aiContent
+                .replace(/```json/gi, '')
+                .replace(/```/g, '')
+                .trim();
 
-    generateDynamicRecommendations(metrics) {
-        const recommendations = [];
-        const m = metrics.metrics || {};
-        const lcp = (m.lcp || 0) / 1000;
-        const ttfb = (m.ttfb || 0) / 1000;
-        const cls = m.cls || 0;
-        const tbt = (m.tbt || 0) / 1000;
-        const requests = metrics.requests?.total || 0;
-        const score = metrics.scores?.performance || 0;
-        
-        // LCP-based recommendation
-        if (lcp > 4) {
-            const severity = lcp > 8 ? 'critical' : 'warning';
-            recommendations.push({
-                issue: `🐌 Main content loads in ${lcp.toFixed(1)} seconds`,
-                plainEnglish: `Visitors wait ${lcp.toFixed(1)} seconds to see your main content. Most people expect this in under 2.5 seconds.`,
-                severity: severity,
-                simpleSuggestion: lcp > 10 
-                    ? `Your large hero image is likely the main culprit. Compressing it could save seconds of load time.`
-                    : `Your main image or video is too large. Try compressing it or using WebP format.`,
-                actionItems: this.getActionsForMetric('lcp', lcp)
-            });
-        }
-        
-        // TTFB-based recommendation
-        if (ttfb > 1.5 && ttfb !== 0) {
-            recommendations.push({
-                issue: `💤 Server responds in ${ttfb.toFixed(1)} seconds`,
-                plainEnglish: `Your server takes ${ttfb.toFixed(1)} seconds just to respond. Good servers respond in under 0.8 seconds.`,
-                severity: ttfb > 3 ? 'critical' : 'warning',
-                simpleSuggestion: 'Your hosting may be overloaded or underpowered for your traffic levels.',
-                actionItems: this.getActionsForMetric('ttfb', ttfb)
-            });
-        }
-        
-        // CLS-based recommendation
-        if (cls > 0.15) {
-            recommendations.push({
-                issue: `📱 Content shifts by ${(cls * 100).toFixed(0)}% while loading`,
-                plainEnglish: `Your page layout jumps around as it loads. Visitors try to click but things move unexpectedly.`,
-                severity: cls > 0.3 ? 'critical' : 'warning',
-                simpleSuggestion: 'Images or ads are loading late and pushing content down.',
-                actionItems: this.getActionsForMetric('cls', cls)
-            });
-        }
-        
-        // TBT-based recommendation
-        if (tbt > 0.5) {
-            recommendations.push({
-                issue: `⏰ Page freezes for ${tbt.toFixed(1)} seconds`,
-                plainEnglish: `Your page becomes unresponsive for ${tbt.toFixed(1)} seconds. Visitors click but nothing happens.`,
-                severity: tbt > 1 ? 'critical' : 'warning',
-                simpleSuggestion: 'Too many JavaScript effects are running at once, blocking the browser.',
-                actionItems: this.getActionsForMetric('tbt', tbt)
-            });
-        }
-        
-        // Request count recommendation
-        if (requests > 80) {
-            recommendations.push({
-                issue: `📦 ${requests} files downloaded`,
-                plainEnglish: `Your page downloads ${requests} separate files. Each file adds download delay.`,
-                severity: requests > 120 ? 'critical' : 'warning',
-                simpleSuggestion: 'Each JavaScript, CSS, and image file adds download time.',
-                actionItems: [
-                    'Combine multiple CSS files into one',
-                    'Remove unused plugins and scripts',
-                    'Use SVG sprites instead of multiple icons'
-                ]
-            });
-        }
-        
-        // Score-based overall recommendation (fixed syntax)
-        if (recommendations.length === 0) {
-            if (score >= 90) {
-                recommendations.push({
-                    issue: '🎉 Excellent performance!',
-                    plainEnglish: 'Your ' + score + '/100 score is outstanding! Your website loads very quickly.',
-                    severity: 'info',
-                    simpleSuggestion: 'Keep maintaining this speed with regular checks.',
-                    actionItems: [
-                        'Test monthly to catch slowdowns',
-                        'Keep images optimized when adding content',
-                        'Monitor hosting performance as you grow'
-                    ]
-                });
-            } else if (score >= 70) {
-                recommendations.push({
-                    issue: '👍 Good but not perfect',
-                    plainEnglish: 'Your ' + score + '/100 score is decent. There is room for improvement.',
-                    severity: 'info',
-                    simpleSuggestion: 'Small optimizations could make your site noticeably faster.',
-                    actionItems: [
-                        'Compress remaining large images',
-                        'Enable browser caching',
-                        'Consider a CDN for faster global delivery'
-                    ]
-                });
-            } else {
-                recommendations.push({
-                    issue: '📊 Multiple areas need improvement',
-                    plainEnglish: 'Your ' + score + '/100 score indicates several performance issues.',
-                    severity: 'warning',
-                    simpleSuggestion: 'Focus on the most impactful fix first - usually reducing image sizes.',
-                    actionItems: [
-                        'Start with image compression (biggest impact)',
-                        'Then enable caching on your server',
-                        'Finally consider upgrading hosting'
-                    ]
-                });
-            }
-        }
-        
-        return recommendations;
-    }
+            const parsed = JSON.parse(clean);
 
-    getActionsForMetric(metric, value) {
-        const actions = {
-            lcp: value > 10 ? [
-                'Compress your hero image - tools like TinyPNG can reduce size by 70%',
-                'Convert images to WebP format (smaller than JPG)',
-                'Replace auto-playing video with a static image',
-                'Consider lazy-loading below-the-fold images'
-            ] : value > 5 ? [
-                'Compress images before uploading (use TinyPNG - free)',
-                'Resize images to exact dimensions needed (not larger)',
-                'Remove unnecessary carousels/sliders',
-                'Enable image caching on your server'
-            ] : [
-                'Compress any remaining large images',
-                'Consider using a CDN for faster delivery',
-                'Preload your main image with HTML preload tag'
-            ],
-            ttfb: value > 3 ? [
-                'Contact your hosting provider NOW - ask about upgrading',
-                'Enable full-page caching (ask a developer)',
-                'Consider switching to faster hosting like Cloudways or Kinsta',
-                'Install a caching plugin if using WordPress'
-            ] : [
-                'Contact your hosting provider about server response time',
-                'Enable caching plugins or server-side caching',
-                'Reduce database queries by optimizing your code',
-                'Consider Cloudflare CDN (free tier available)'
-            ],
-            cls: value > 0.3 ? [
-                'Add width and height attributes to ALL images immediately',
-                'Reserve space for ads before they load',
-                'Avoid inserting content above existing content with JavaScript',
-                'Use CSS aspect-ratio boxes for videos'
-            ] : [
-                'Add explicit width/height to images without them',
-                'Reserve space for lazy-loaded content',
-                'Avoid dynamically injected content pushing layout',
-                'Use transform animations instead of layout-changing ones'
-            ],
-            tbt: [
-                'Remove unnecessary JavaScript plugins',
-                'Load non-critical scripts after page loads (defer/lazy load)',
-                'Split large JavaScript files into smaller chunks',
-                'Consider simplifying complex animations'
-            ]
-        };
-        
-        return actions[metric] || [
-            'Run another audit after making changes',
-            'Test on mobile devices for real-world experience',
-            'Monitor regularly to catch new issues'
-        ];
+            // Validate required fields exist
+            if (!parsed.summary || !parsed.recommendations) {
+                throw new Error('Missing required fields in AI response');
+            }
+
+            return {
+                summary: parsed.summary,
+                verdict: parsed.verdict || '',
+                recommendations: Array.isArray(parsed.recommendations) ? parsed.recommendations : [],
+                generatedAt: new Date().toISOString(),
+                isRealAI: true
+            };
+
+        } catch (err) {
+            console.error('⚠️ Failed to parse AI JSON response:', err.message);
+            console.log('Raw AI content:', aiContent.substring(0, 300));
+
+            // If JSON parse fails, use the raw text as summary
+            return {
+                summary: aiContent.trim(),
+                verdict: '',
+                recommendations: [],
+                generatedAt: new Date().toISOString(),
+                isRealAI: true,
+                parseError: true
+            };
+        }
     }
 
     getIntelligentFallback(metrics) {
@@ -339,53 +175,111 @@ Based ONLY on the numbers above, suggest specific fixes. Don't use generic advic
         const lcp = (metrics.metrics?.lcp || 0) / 1000;
         const fcp = (metrics.metrics?.fcp || 0) / 1000;
         const ttfb = (metrics.metrics?.ttfb || 0) / 1000;
+        const cls = metrics.metrics?.cls || 0;
+        const tbt = (metrics.metrics?.tbt || 0) / 1000;
         const requests = metrics.requests?.total || 0;
-        
+
         let summary = '';
-        
-        const issues = [];
-        if (lcp > 4) issues.push(lcp.toFixed(1) + ' second main content delay');
-        if (ttfb > 1.5) issues.push(ttfb.toFixed(1) + ' second server delay');
-        if (requests > 100) issues.push(requests + ' separate files');
-        
-        if (issues.length > 0) {
-            summary = 'Your website faces ' + issues.length + ' critical performance issues: ' + issues.join(', ') + '. ';
-            summary += 'With a score of ' + score + '/100, visitors will likely experience ';
-            
-            if (lcp > 8) {
-                summary += 'frustrating ' + lcp.toFixed(1) + ' second delays before seeing anything useful. About 70% of visitors may leave before your content loads. ';
-            } else if (lcp > 4) {
-                summary += 'noticeable ' + lcp.toFixed(1) + ' second delays. Many visitors will grow impatient. ';
-            } else {
-                summary += 'some delays. There is clear room for improvement. ';
-            }
-            
-            summary += 'The main bottleneck appears to be ' + (lcp > ttfb ? 'large images and files' : 'server response time') + '. ';
-            summary += 'Your page downloads ' + requests + ' separate resources - each one adds download time. ';
-        } else if (score >= 90) {
-            summary = 'Excellent work! Your ' + lcp.toFixed(1) + ' second load time and ' + score + '/100 score indicate a well-optimized website. ';
-            summary += 'Visitors will have a smooth, fast experience. Your server responds in ' + ttfb.toFixed(1) + ' seconds. ';
-            summary += 'Keep maintaining this speed with regular checks as you add content.';
+        let verdict = '';
+        const recommendations = [];
+
+        if (score >= 90) {
+            summary = `With a score of ${score}/100, this site loads fast and performs well across all metrics. The main content appears in ${lcp.toFixed(1)} seconds, which is comfortably within the 2.5s target. Visitors are unlikely to experience frustration or delays. The server responds in ${ttfb > 0 ? ttfb.toFixed(2) + 's' : 'a reasonable time'} and the page layout is stable${cls < 0.1 ? ', with no unexpected shifts' : ''}.`;
+            verdict = 'This site is fast and well-optimised — keep it up.';
         } else if (score >= 70) {
-            summary = 'Pretty good! Your ' + score + '/100 score is above average, but there is room for improvement. ';
-            summary += 'Your main content appears in ' + lcp.toFixed(1) + ' seconds. ';
-            summary += 'With ' + requests + ' files downloading, simplifying your page could make it even faster.';
+            summary = `A score of ${score}/100 is above average, but there is room to improve. The main content loads in ${lcp.toFixed(1)} seconds — just ${lcp > 2.5 ? 'above' : 'within'} the 2.5s target. Most visitors will find the site usable, but those on slower connections may notice delays. With ${requests} network requests, reducing file count could make a noticeable difference.`;
+            verdict = 'Decent performance, but some targeted fixes could make a real difference.';
+        } else if (score >= 50) {
+            summary = `A score of ${score}/100 means visitors are experiencing real delays. The main content takes ${lcp.toFixed(1)} seconds to appear — that is ${(lcp - 2.5).toFixed(1)} seconds over the target. Studies show that 53% of mobile visitors leave if a page takes over 3 seconds. With ${requests} files loading, there are likely several opportunities to speed things up.`;
+            verdict = 'Performance needs attention — visitors are likely leaving before the page loads.';
         } else {
-            summary = 'Performance needs attention. Your ' + score + '/100 score means visitors experience significant delays. ';
-            summary += 'The main content takes ' + lcp.toFixed(1) + ' seconds to appear - ';
-            summary += 'most users expect this in under 2 seconds. ';
-            if (requests > 80) {
-                summary += 'With ' + requests + ' files, ';
-            }
-            summary += 'Start by compressing large images and enabling caching.';
+            summary = `A score of ${score}/100 is critically low. Visitors wait ${lcp.toFixed(1)} seconds to see any meaningful content — that is roughly ${Math.round(lcp / 2.5)}x longer than the recommended target. At this speed, the majority of visitors will abandon the page entirely. The ${requests} network requests and ${tbt > 0 ? tbt.toFixed(1) + 's of blocking time' : 'heavy JavaScript load'} are major contributors to this.`;
+            verdict = 'This site is critically slow — most visitors will leave before it finishes loading.';
         }
-        
+
+        // Only add recommendations for metrics that are actually failing
+        if (lcp > 2.5) {
+            recommendations.push({
+                issue: `Main content loads in ${lcp.toFixed(1)}s`,
+                severity: lcp > 4 ? 'critical' : 'warning',
+                plainEnglish: `Visitors wait ${lcp.toFixed(1)} seconds to see your main content. Most expect it in under 2.5 seconds.`,
+                simpleSuggestion: lcp > 6 ? 'A large hero image is the most likely cause. Compressing it could cut seconds off your load time.' : 'Optimise your largest above-the-fold image — compress it and consider WebP format.',
+                actionItems: [
+                    'Identify the largest image or element on your page',
+                    'Compress images using TinyPNG or Squoosh (free tools)',
+                    'Convert images to WebP format for smaller file sizes',
+                    'Preload your main image using <link rel="preload">'
+                ]
+            });
+        }
+
+        if (ttfb > 0.8 && ttfb !== 0) {
+            recommendations.push({
+                issue: `Server responds in ${ttfb.toFixed(2)}s`,
+                severity: ttfb > 2 ? 'critical' : 'warning',
+                plainEnglish: `Before a single pixel appears, your server takes ${ttfb.toFixed(2)} seconds to respond. A good server responds in under 0.8s.`,
+                simpleSuggestion: 'Enable server-side caching or consider upgrading your hosting plan.',
+                actionItems: [
+                    'Enable caching on your server or CMS',
+                    'Use Cloudflare (free tier) to cache responses closer to visitors',
+                    'Contact your host and ask about server response time optimisation',
+                    'Consider switching to a faster host if the problem persists'
+                ]
+            });
+        }
+
+        if (cls > 0.1) {
+            recommendations.push({
+                issue: `Layout shifts by ${cls.toFixed(3)} during load`,
+                severity: cls > 0.25 ? 'critical' : 'warning',
+                plainEnglish: `Your page layout jumps around as it loads. Visitors try to tap a button and something else appears instead — a frustrating experience.`,
+                simpleSuggestion: 'Add explicit width and height attributes to all images and reserve space for ads or embeds.',
+                actionItems: [
+                    'Add width and height to every <img> tag on your page',
+                    'Reserve space for ads and embeds before they load',
+                    'Avoid injecting content above existing text with JavaScript',
+                    'Use CSS aspect-ratio boxes for videos and iframes'
+                ]
+            });
+        }
+
+        if (tbt > 0.3) {
+            recommendations.push({
+                issue: `Page is unresponsive for ${tbt.toFixed(1)}s`,
+                severity: tbt > 1 ? 'critical' : 'warning',
+                plainEnglish: `After loading, the page freezes for ${tbt.toFixed(1)} seconds where clicks and taps do nothing. This is caused by heavy JavaScript running on load.`,
+                simpleSuggestion: 'Defer non-essential JavaScript so it loads after the page is interactive.',
+                actionItems: [
+                    'Add defer or async attributes to non-critical <script> tags',
+                    'Remove unused JavaScript plugins and libraries',
+                    'Split large JS bundles into smaller lazy-loaded chunks',
+                    'Profile your JS in Chrome DevTools to find the heaviest tasks'
+                ]
+            });
+        }
+
+        if (requests > 80) {
+            recommendations.push({
+                issue: `${requests} files downloaded on load`,
+                severity: requests > 120 ? 'critical' : 'warning',
+                plainEnglish: `Your page makes ${requests} separate network requests. Each one adds a small delay — combined, they add up significantly, especially on mobile.`,
+                simpleSuggestion: 'Combine CSS files, remove unused plugins, and use icon sprites instead of individual icon files.',
+                actionItems: [
+                    'Audit and remove unused plugins or third-party scripts',
+                    'Combine multiple CSS files into one',
+                    'Use an icon font or SVG sprite instead of separate icon images',
+                    'Enable HTTP/2 on your server for parallel request handling'
+                ]
+            });
+        }
+
         return {
-            summary: summary,
-            simpleSummary: summary.substring(0, 300),
-            recommendations: this.generateDynamicRecommendations(metrics),
+            summary,
+            verdict,
+            recommendations,
             generatedAt: new Date().toISOString(),
-            note: 'Analysis based on your metrics'
+            isRealAI: false,
+            note: 'AI service unavailable — analysis generated from metrics'
         };
     }
 }

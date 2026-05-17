@@ -309,3 +309,72 @@
         text-align: center;
     }
 }
+
+/* Verdict banner */
+.verdict-banner {
+    background: rgba(255, 255, 255, 0.15);
+    border-left: 4px solid white;
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin-bottom: 20px;
+}
+
+.verdict-text {
+    color: white;
+    font-size: 1rem;
+    font-weight: 600;
+    font-style: italic;
+}
+
+/* Multiple summary paragraphs */
+.summary-text + .summary-text {
+    margin-top: 10px;
+}
+
+/* Fallback note */
+.fallback-note {
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: #999;
+    font-style: italic;
+}
+
+/* Severity badge next to issue title */
+.rec-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.severity-badge {
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 20px;
+    margin-left: auto;
+}
+
+.recommendation-item.critical .severity-badge {
+    background: #f8d7da;
+    color: #dc3545;
+}
+
+.recommendation-item.warning .severity-badge {
+    background: #fff3cd;
+    color: #856404;
+}
+
+.recommendation-item.info .severity-badge {
+    background: #d1ecf1;
+    color: #0c5460;
+}
+
+/* AI badge styling for fallback state */
+.ai-badge {
+    font-size: 0.75rem;
+    padding: 4px 10px;
+    border-radius: 20px;
+    background: rgba(255,255,255,0.2);
+    color: white;
+}

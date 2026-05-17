@@ -4,74 +4,77 @@ const dotenv = require('dotenv');
 const path = require('path');
 const database = require('./database');
 
-// Load environment variables
 dotenv.config({ path: path.resolve(__dirname, '.env') });
 
-// Import routes
 const auditRoutes = require('./routes/auditRoutes');
+const authRoutes = require('./routes/authRoutes');
 
-// Create Express app
 const app = express();
-
-// Define port from env or default to 5000
 const PORT = process.env.PORT || 5000;
 
-// Middleware
 app.use(cors());
 app.use(express.json());
 
-// Routes
+// ─── PUBLIC ROUTES ────────────────────────────────────────────────────────────
+
 app.get('/', (req, res) => {
-    res.json({ 
+    res.json({
         message: 'Web Performance Dashboard API',
-        version: '1.0.0',
+        version: '2.0.0',
         endpoints: {
-            test: '/api/test',
-            audit: '/api/audit (POST with {url: "https://example.com"})'
+            auth: '/api/auth/login, /api/auth/register',
+            audit: '/api/audit (POST, requires auth)',
+            test: '/api/test'
         }
     });
 });
 
-// Test route
 app.get('/api/test', (req, res) => {
-    res.json({ 
-        status: 'success', 
-        message: 'Server is working!',
-        time: new Date().toLocaleString()
-    });
+    res.json({ status: 'success', message: 'Server is working!', time: new Date().toLocaleString() });
 });
 
-// Use audit routes
+// ─── AUTH ROUTES (public — login/register don't need a token) ─────────────────
+app.use('/api/auth', authRoutes);
+
+// ─── PROTECTED ROUTES (all audit routes require a valid token) ────────────────
+// NOTE: Open auditRoutes.js and add the following at the top of each route handler:
+//
+//   const { verifyToken, requireMinRole } = require('../authMiddleware');
+//
+// Then protect routes like this:
+//   router.post('/audit', verifyToken, async (req, res) => { ... })
+//   router.get('/history', verifyToken, async (req, res) => { ... })
+//   router.delete('/audit/:id', verifyToken, requireMinRole('moderator'), async (req, res) => { ... })
+//
+// And pass req.user.id when saving audits:
+//   database.saveAudit(auditData, req.user.id);
+//
+// For history, pass req.user.id for normal users, null for moderator/admin (to see all):
+//   const userId = req.user.role === 'normal' ? req.user.id : null;
+//   database.getAuditHistory(url, 10, userId);
+
 app.use('/api', auditRoutes);
 
-// Graceful shutdown
+// ─── GRACEFUL SHUTDOWN ────────────────────────────────────────────────────────
+
 const gracefulShutdown = async () => {
-    console.log('\n🛑 Received shutdown signal, closing gracefully...');
-    database.closeDatabase(); // Add this line
+    console.log('\n🛑 Shutting down gracefully...');
+    database.closeDatabase();
     server.close(() => {
         console.log('✅ HTTP server closed');
         process.exit(0);
     });
-    
-    // Force close after 10 seconds if needed
-    setTimeout(() => {
-        console.error('⚠️ Forced shutdown after timeout');
-        process.exit(1);
-    }, 10000);
+    setTimeout(() => { process.exit(1); }, 10000);
 };
 
-// Handle shutdown signals
 process.on('SIGINT', gracefulShutdown);
 process.on('SIGTERM', gracefulShutdown);
 
-// Start server
 const server = app.listen(PORT, () => {
     console.log('=================================');
     console.log('SERVER STARTED SUCCESSFULLY!');
     console.log('=================================');
-    console.log(`Listen on: http://localhost:${PORT}`);
-    console.log(`Test URL: http://localhost:${PORT}/api/test`);
-    console.log(`Audit URL: POST to http://localhost:${PORT}/api/audit`);
+    console.log(`Listening on: http://localhost:${PORT}`);
+    console.log(`Auth endpoints: http://localhost:${PORT}/api/auth/login`);
     console.log('=================================');
-    console.log('Press Ctrl+C to stop the server');
 });

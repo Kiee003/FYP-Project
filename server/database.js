@@ -12,13 +12,11 @@ if (!fs.existsSync(dbDir)) {
 const dbPath = path.join(dbDir, 'audit_history.db');
 console.log('📁 Database path:', dbPath);
 
-// Create database connection (synchronous)
 const db = new Database(dbPath);
 console.log('✅ Connected to SQLite database');
 
-// Initialize database tables (synchronous)
 function initializeDatabase() {
-    // Create audits table
+    // Audits table
     db.exec(`
         CREATE TABLE IF NOT EXISTS audits (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -33,11 +31,25 @@ function initializeDatabase() {
             requests INTEGER,
             ai_summary TEXT,
             ai_recommendations TEXT,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            user_id INTEGER REFERENCES users(id)
         )
     `);
 
-    // Create websites table
+    // Users table
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            password_hash TEXT NOT NULL,
+            role TEXT NOT NULL DEFAULT 'normal',
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            last_login DATETIME
+        )
+    `);
+
+    // Websites table
     db.exec(`
         CREATE TABLE IF NOT EXISTS websites (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -51,30 +63,39 @@ function initializeDatabase() {
         )
     `);
 
-    // Create indexes
+    // Migration: add user_id to existing audits table if not present
+    try {
+        db.exec(`ALTER TABLE audits ADD COLUMN user_id INTEGER REFERENCES users(id)`);
+        console.log('✅ Migrated audits table: added user_id column');
+    } catch (e) {
+        // Column already exists — safe to ignore
+    }
+
     db.exec(`CREATE INDEX IF NOT EXISTS idx_url ON audits(url)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_timestamp ON audits(timestamp)`);
-    
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_user_id ON audits(user_id)`);
+
     console.log('✅ Database tables and indexes ready');
 }
 
 initializeDatabase();
 
-// Save audit result to database (synchronous)
-const saveAudit = (auditData) => {
+// ─── AUDIT FUNCTIONS ──────────────────────────────────────────────────────────
+
+const saveAudit = (auditData, userId = null) => {
     const { url, scores, metrics, requests, aiInsights } = auditData;
-    
+
     const aiSummary = aiInsights?.summary || '';
-    const aiRecommendations = aiInsights?.recommendations ? JSON.stringify(aiInsights.recommendations) : '';
-    
-    const insertStmt = db.prepare(`
+    const aiRecommendations = aiInsights?.recommendations
+        ? JSON.stringify(aiInsights.recommendations)
+        : '';
+
+    const info = db.prepare(`
         INSERT INTO audits (
-            url, performance_score, lcp, fcp, ttfb, cls, tbt, requests, 
-            ai_summary, ai_recommendations, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `);
-    
-    const info = insertStmt.run(
+            url, performance_score, lcp, fcp, ttfb, cls, tbt, requests,
+            ai_summary, ai_recommendations, created_at, user_id
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(
         url,
         scores.performance,
         metrics.lcp,
@@ -85,30 +106,32 @@ const saveAudit = (auditData) => {
         requests.total,
         aiSummary,
         aiRecommendations,
-        new Date().toISOString()
+        new Date().toISOString(),
+        userId
     );
-    
-    console.log(`💾 Audit saved to database with ID: ${info.lastInsertRowid}`);
-    
-    // Update website statistics
+
+    console.log(`💾 Audit saved with ID: ${info.lastInsertRowid} (user: ${userId || 'anonymous'})`);
     updateWebsiteStats(url, scores.performance);
 };
 
-// Update website statistics (synchronous)
 const updateWebsiteStats = (url, score) => {
     const website = db.prepare(`SELECT * FROM websites WHERE url = ?`).get(url);
-    
+
     if (website) {
         const newCount = website.audit_count + 1;
         const newAvg = ((website.avg_score * website.audit_count) + score) / newCount;
-        const newBest = Math.max(website.best_score, score);
-        const newWorst = Math.min(website.worst_score, score);
-        
         db.prepare(`
-            UPDATE websites 
+            UPDATE websites
             SET last_audit = ?, avg_score = ?, best_score = ?, worst_score = ?, audit_count = ?
             WHERE url = ?
-        `).run(new Date().toISOString(), newAvg, newBest, newWorst, newCount, url);
+        `).run(
+            new Date().toISOString(),
+            newAvg,
+            Math.max(website.best_score, score),
+            Math.min(website.worst_score, score),
+            newCount,
+            url
+        );
     } else {
         db.prepare(`
             INSERT INTO websites (url, first_audit, last_audit, avg_score, best_score, worst_score, audit_count)
@@ -117,71 +140,101 @@ const updateWebsiteStats = (url, score) => {
     }
 };
 
-// Get audit history for a specific URL (synchronous)
-const getAuditHistory = (url, limit = 10) => {
-    const stmt = db.prepare(`
-        SELECT * FROM audits 
-        WHERE url = ?
-        ORDER BY created_at DESC 
-        LIMIT ?
-    `);
-    return stmt.all(url, limit);
+// Get history for a URL — optionally filter by user (for normal users)
+const getAuditHistory = (url, limit = 10, userId = null) => {
+    if (userId) {
+        return db.prepare(`
+            SELECT * FROM audits WHERE url = ? AND user_id = ?
+            ORDER BY created_at DESC LIMIT ?
+        `).all(url, userId, limit);
+    }
+    return db.prepare(`
+        SELECT * FROM audits WHERE url = ?
+        ORDER BY created_at DESC LIMIT ?
+    `).all(url, limit);
 };
 
-// Get all audits (synchronous)
+// Get all audits — moderator/admin only
 const getAllAudits = (limit = 50) => {
-    const stmt = db.prepare(`
-        SELECT * FROM audits 
-        ORDER BY created_at DESC 
-        LIMIT ?
-    `);
-    return stmt.all(limit);
+    return db.prepare(`
+        SELECT a.*, u.username, u.email FROM audits a
+        LEFT JOIN users u ON a.user_id = u.id
+        ORDER BY a.created_at DESC LIMIT ?
+    `).all(limit);
 };
 
-// Get website statistics (synchronous)
-const getWebsiteStats = (url) => {
-    const stmt = db.prepare(`SELECT * FROM websites WHERE url = ?`);
-    return stmt.get(url);
-};
+const getWebsiteStats = (url) => db.prepare(`SELECT * FROM websites WHERE url = ?`).get(url);
 
-// Get all websites summary (synchronous)
-const getAllWebsites = () => {
-    const stmt = db.prepare(`
-        SELECT url, first_audit, last_audit, avg_score, best_score, worst_score, audit_count
-        FROM websites 
-        ORDER BY last_audit DESC
-    `);
-    return stmt.all();
-};
+const getAllWebsites = () => db.prepare(`
+    SELECT url, first_audit, last_audit, avg_score, best_score, worst_score, audit_count
+    FROM websites ORDER BY last_audit DESC
+`).all();
 
-// Delete audit by ID (synchronous)
 const deleteAudit = (id) => {
-    const stmt = db.prepare(`DELETE FROM audits WHERE id = ?`);
-    const info = stmt.run(id);
+    const info = db.prepare(`DELETE FROM audits WHERE id = ?`).run(id);
     return info.changes > 0;
 };
 
-// Get statistics summary (synchronous)
-const getStatistics = () => {
-    const stmt = db.prepare(`
-        SELECT 
-            COUNT(*) as total_audits,
-            COUNT(DISTINCT url) as total_websites,
-            AVG(performance_score) as avg_performance,
-            MIN(performance_score) as min_score,
-            MAX(performance_score) as max_score
-        FROM audits
-    `);
-    return stmt.get();
+const getStatistics = () => db.prepare(`
+    SELECT
+        COUNT(*) as total_audits,
+        COUNT(DISTINCT url) as total_websites,
+        COUNT(DISTINCT user_id) as total_users,
+        AVG(performance_score) as avg_performance,
+        MIN(performance_score) as min_score,
+        MAX(performance_score) as max_score
+    FROM audits
+`).get();
+
+// ─── USER FUNCTIONS ───────────────────────────────────────────────────────────
+
+const createUser = (username, email, passwordHash, role = 'normal') => {
+    const info = db.prepare(`
+        INSERT INTO users (username, email, password_hash, role)
+        VALUES (?, ?, ?, ?)
+    `).run(username, email, passwordHash, role);
+    return info.lastInsertRowid;
 };
 
-// Close the database connection
+const getUserByEmail = (email) =>
+    db.prepare(`SELECT * FROM users WHERE email = ?`).get(email);
+
+const getUserById = (id) =>
+    db.prepare(`SELECT id, username, email, role, created_at, last_login FROM users WHERE id = ?`).get(id);
+
+const getAllUsers = () =>
+    db.prepare(`
+        SELECT u.id, u.username, u.email, u.role, u.created_at, u.last_login,
+               COUNT(a.id) as audit_count
+        FROM users u
+        LEFT JOIN audits a ON u.id = a.user_id
+        GROUP BY u.id
+        ORDER BY u.created_at DESC
+    `).all();
+
+const updateUserRole = (id, role) => {
+    const info = db.prepare(`UPDATE users SET role = ? WHERE id = ?`).run(role, id);
+    return info.changes > 0;
+};
+
+const deleteUser = (id) => {
+    const info = db.prepare(`DELETE FROM users WHERE id = ?`).run(id);
+    return info.changes > 0;
+};
+
+const updateLastLogin = (id) =>
+    db.prepare(`UPDATE users SET last_login = ? WHERE id = ?`).run(new Date().toISOString(), id);
+
+const getUserCount = () =>
+    db.prepare(`SELECT COUNT(*) as count FROM users`).get().count;
+
 const closeDatabase = () => {
     db.close();
     console.log('👋 Database connection closed');
 };
 
 module.exports = {
+    // Audit
     saveAudit,
     getAuditHistory,
     getAllAudits,
@@ -189,6 +242,16 @@ module.exports = {
     getAllWebsites,
     deleteAudit,
     getStatistics,
+    // Users
+    createUser,
+    getUserByEmail,
+    getUserById,
+    getAllUsers,
+    updateUserRole,
+    deleteUser,
+    updateLastLogin,
+    getUserCount,
+    // Misc
     closeDatabase,
-    db  // <-- EXPORT DATABASE CONNECTION
+    db
 };

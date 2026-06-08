@@ -1,9 +1,17 @@
-import React, { useState, useEffect } from 'react';
-import { getAuditHistory } from '../services/api';
+import React, { useState, useEffect, useCallback } from 'react';
+import { getAuditHistory, getTrendData } from '../services/api';
 import PerformanceChart from './PerformanceChart';
 import ExportButton from './ExportButton';
-import ComparisonView from './ComparisonView';
-import { getTrendData } from '../services/api';
+// import ComparisonView from './ComparisonView';
+
+// SVG icon for the section header
+const HistoryIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="1 4 1 10 7 10"/>
+        <path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
+        <polyline points="12 7 12 12 15 15"/>
+    </svg>
+);
 
 const AuditHistory = ({ url }) => {
     const [history, setHistory] = useState([]);
@@ -12,46 +20,38 @@ const AuditHistory = ({ url }) => {
     const [trendData, setTrendData] = useState(null);
     const [showChart, setShowChart] = useState(false);
 
-    useEffect(() => {
-        if (url) {
-            loadHistory();
-        }
-    }, [url]);
-
-    const loadHistory = async () => {
+    const loadHistory = useCallback(async () => {
+        if (!url) return;
         setLoading(true);
         setError(null);
         try {
             const response = await getAuditHistory(url, 10);
-            if (response.success) {
-                setHistory(response.data);
-            }
+            if (response.success) setHistory(response.data);
         } catch (err) {
             setError('Failed to load audit history');
             console.error(err);
         } finally {
             setLoading(false);
         }
-    };
+    }, [url]);
+
+    useEffect(() => {
+        loadHistory();
+    }, [loadHistory]);
 
     const loadTrendData = async () => {
         if (!url) return;
         try {
             const response = await getTrendData(url, 10);
-            if (response.success) {
-                setTrendData(response.data);
-            }
-        } catch (error) {
-            console.error('Failed to load trend data:', error);
+            if (response.success) setTrendData(response.data);
+        } catch (err) {
+            console.error('Failed to load trend data:', err);
         }
     };
 
-    const formatDate = (dateString) => {
-        const date = new Date(dateString);
-        return date.toLocaleString();
-    };
+    const formatDate = (dateString) => new Date(dateString).toLocaleString();
 
-    const getScoreClass = (score) => {
+    const getScoreStyle = (score) => {
         if (score >= 90) return { color: '#28a745', fontWeight: 'bold' };
         if (score >= 50) return { color: '#ffc107', fontWeight: 'bold' };
         return { color: '#dc3545', fontWeight: 'bold' };
@@ -69,14 +69,19 @@ const AuditHistory = ({ url }) => {
         return <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>No previous audits for this URL</div>;
     }
 
-    const latestAuditId = history[0]?.id;
+    // const latestAuditId = history[0]?.id;
 
     return (
         <div style={{ marginTop: '30px', padding: '20px', background: '#f8f9fa', borderRadius: '10px' }}>
+
+            {/* Header row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-                <h3 style={{ margin: 0 }}>📜 Audit History</h3>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                    <button 
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#333' }}>
+                    <HistoryIcon />
+                    Audit History
+                </h3>
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <button
                         onClick={() => {
                             setShowChart(!showChart);
                             if (!showChart && !trendData) loadTrendData();
@@ -88,27 +93,34 @@ const AuditHistory = ({ url }) => {
                             border: 'none',
                             borderRadius: '5px',
                             cursor: 'pointer',
-                            fontSize: '12px'
+                            fontSize: '12px',
+                            fontWeight: '500',
                         }}
                     >
                         {showChart ? 'Hide Chart' : 'Show Trend Chart'}
                     </button>
+                    {/* Top export buttons — exports ALL audits for this URL */}
                     <ExportButton url={url} type="url" />
                 </div>
             </div>
-            
+
             {showChart && trendData && (
                 <PerformanceChart trendData={trendData} title={`Performance Trend for ${url}`} />
             )}
-            
+
+            {/* History table */}
             <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden' }}>
                     <thead>
                         <tr style={{ background: '#f1f3f5' }}>
+                            <th style={{ padding: '12px 10px', textAlign: 'center', width: '40px', color: '#888', fontSize: '12px', fontWeight: '600' }}>#</th>
                             <th style={{ padding: '12px', textAlign: 'left' }}>Date</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>Score</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>LCP</th>
+                            <th style={{ padding: '12px', textAlign: 'center' }}>FCP</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>TTFB</th>
+                            <th style={{ padding: '12px', textAlign: 'center' }}>CLS</th>
+                            <th style={{ padding: '12px', textAlign: 'center' }}>TBT</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>Requests</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>Actions</th>
                         </tr>
@@ -116,16 +128,24 @@ const AuditHistory = ({ url }) => {
                     <tbody>
                         {history.map((audit, index) => (
                             <tr key={audit.id} style={{ borderBottom: '1px solid #eee' }}>
+                                {/* Row number */}
+                                <td style={{ padding: '12px 10px', textAlign: 'center', color: '#aaa', fontSize: '12px', fontWeight: '600' }}>
+                                    {index + 1}
+                                </td>
                                 <td style={{ padding: '12px' }}>{formatDate(audit.created_at)}</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <span style={getScoreClass(audit.performance_score)}>
+                                    <span style={getScoreStyle(audit.performance_score)}>
                                         {audit.performance_score}/100
                                     </span>
                                 </td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.lcp / 1000).toFixed(2)}s</td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.lcp  / 1000).toFixed(2)}s</td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.fcp  / 1000).toFixed(2)}s</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.ttfb / 1000).toFixed(2)}s</td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>{audit.cls?.toFixed(3) || '0.000'}</td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.tbt  / 1000).toFixed(2)}s</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>{audit.requests}</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>
+                                    {/* Row export buttons — exports this single audit */}
                                     <ExportButton auditId={audit.id} type="single" />
                                 </td>
                             </tr>
@@ -133,9 +153,8 @@ const AuditHistory = ({ url }) => {
                     </tbody>
                 </table>
             </div>
-            
-            {/* Comparison Component */}
-            <ComparisonView currentAuditId={latestAuditId} currentUrl={url} />
+
+            {/*<ComparisonView currentAuditId={latestAuditId} currentUrl={url} />*/}
         </div>
     );
 };

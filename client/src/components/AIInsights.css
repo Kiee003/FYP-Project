@@ -1,3 +1,79 @@
+/* Header icon alignment */
+.ai-header h2 {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 0;
+    font-size: 1.4rem;
+}
+
+.ai-header__icon {
+    display: flex;
+    align-items: center;
+    opacity: 0.9;
+}
+
+/* Card icon — sized for SVG not emoji */
+.card-icon {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    width: 44px;
+    height: 44px;
+    min-width: 44px;
+    background: #f0f2ff;
+    border-radius: 10px;
+    color: #667eea;
+    margin-right: 18px;
+    padding: 9px;
+}
+
+/* Severity rec-icon aligned for SVG */
+.rec-icon {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+/* Fallback note with icon */
+.fallback-note {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-top: 12px;
+    font-size: 0.8rem;
+    color: #999;
+    font-style: italic;
+}
+
+.fallback-note__icon {
+    display: flex;
+    align-items: center;
+    color: #ffc107;
+    flex-shrink: 0;
+}
+
+/* Action toggle with icon */
+.action-toggle {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.action-toggle__icon {
+    display: flex;
+    align-items: center;
+    color: #667eea;
+}
+
+/* Checkmark SVG alignment */
+.checkmark {
+    display: flex;
+    align-items: center;
+    color: #28a745;
+    flex-shrink: 0;
+}
+
 .ai-insights {
     margin-top: 30px;
     border-radius: 12px;

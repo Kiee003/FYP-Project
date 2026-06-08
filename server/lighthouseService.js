@@ -61,7 +61,9 @@ class LighthouseService {
                 chromeFlags: [
                     '--headless=new',
                     '--no-sandbox',
-                    '--disable-gpu'
+                    '--disable-gpu',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage'
                 ]
             });
             

@@ -1,0 +1,293 @@
+.sidebar {
+    width: 256px;
+    min-height: 100vh;
+    background: rgba(0, 0, 0, 0.22);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    padding: 24px 0 20px;
+    transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1);
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    flex-shrink: 0;
+    overflow: hidden;
+}
+
+.sidebar--collapsed {
+    width: 64px;
+}
+
+/* ── Collapse button ─────────────────────────────────── */
+/* Sits flush against the right edge — no floating circle */
+.sidebar__collapse-btn {
+    position: absolute;
+    top: 24px;
+    right: 0;
+    width: 24px;
+    height: 32px;
+    background: rgba(255, 255, 255, 0.08);
+    border: none;
+    border-radius: 6px 0 0 6px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+    z-index: 10;
+}
+
+.sidebar__collapse-btn:hover {
+    background: rgba(255, 255, 255, 0.16);
+    color: white;
+}
+
+/* ── Profile ─────────────────────────────────────────── */
+.sidebar__profile {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    padding: 0 16px 20px;
+    overflow: hidden;
+}
+
+.sidebar__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    border: 1.5px solid rgba(255, 255, 255, 0.15);
+    letter-spacing: 0;
+}
+
+.sidebar__user-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    overflow: hidden;
+    min-width: 0;
+}
+
+.sidebar__username {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: white;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    letter-spacing: -0.1px;
+}
+
+.sidebar__email {
+    font-size: 0.7rem;
+    color: rgba(255, 255, 255, 0.45);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar__role-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 0.67rem;
+    font-weight: 600;
+    padding: 2px 7px 2px 5px;
+    border-radius: 20px;
+    align-self: flex-start;
+    margin-top: 1px;
+    letter-spacing: 0.1px;
+}
+
+/* ── Divider ─────────────────────────────────────────── */
+.sidebar__divider {
+    height: 1px;
+    background: rgba(255, 255, 255, 0.07);
+    margin: 0 16px 14px;
+    flex-shrink: 0;
+}
+
+/* ── Nav ─────────────────────────────────────────────── */
+.sidebar__nav {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 0 8px;
+    overflow: hidden;
+}
+
+.sidebar__section-label {
+    font-size: 0.62rem;
+    font-weight: 700;
+    color: rgba(255, 255, 255, 0.28);
+    text-transform: uppercase;
+    letter-spacing: 1.6px;
+    padding: 0 8px 8px;
+    display: block;
+    white-space: nowrap;
+}
+
+.sidebar__nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    color: rgba(255, 255, 255, 0.55);
+    font-size: 0.85rem;
+    font-weight: 500;
+    width: 100%;
+    text-align: left;
+    transition: background 0.14s, color 0.14s;
+    white-space: nowrap;
+    overflow: hidden;
+    position: relative;
+}
+
+.sidebar__nav-item:hover {
+    background: rgba(255, 255, 255, 0.09);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.sidebar__nav-item.active {
+    background: rgba(255, 255, 255, 0.14);
+    color: white;
+    font-weight: 600;
+}
+
+/* Thin left accent bar for active item */
+.sidebar__nav-item.active::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 6px;
+    bottom: 6px;
+    width: 3px;
+    background: white;
+    border-radius: 0 3px 3px 0;
+}
+
+.nav-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    flex-shrink: 0;
+}
+
+.nav-label {
+    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.nav-active-dot {
+    width: 5px;
+    height: 5px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.7);
+    flex-shrink: 0;
+}
+
+/* ── Footer ──────────────────────────────────────────── */
+.sidebar__footer {
+    padding: 0 8px 0;
+    flex-shrink: 0;
+}
+
+.sidebar__logout {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px;
+    border: none;
+    background: transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    color: rgba(248, 113, 113, 0.7);
+    font-size: 0.85rem;
+    font-weight: 500;
+    width: 100%;
+    text-align: left;
+    transition: background 0.14s, color 0.14s;
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.sidebar__logout:hover {
+    background: rgba(248, 113, 113, 0.1);
+    color: #fca5a5;
+}
+
+/* ── Collapsed state icon centering ──────────────────── */
+.sidebar--collapsed .sidebar__nav-item,
+.sidebar--collapsed .sidebar__logout {
+    justify-content: center;
+    padding: 9px 0;
+}
+
+.sidebar--collapsed .sidebar__profile {
+    justify-content: center;
+    padding: 0 0 20px;
+}
+
+/* ── Mobile: horizontal top bar ──────────────────────── */
+@media (max-width: 768px) {
+    .sidebar {
+        width: 100%;
+        min-height: unset;
+        height: auto;
+        flex-direction: row;
+        align-items: center;
+        padding: 10px 12px;
+        position: sticky;
+        top: 0;
+        z-index: 50;
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        gap: 6px;
+        overflow-x: auto;
+    }
+
+    .sidebar--collapsed { width: 100%; }
+    .sidebar__collapse-btn { display: none; }
+    .sidebar__profile { padding: 0; flex-shrink: 0; }
+    .sidebar__user-info { display: none; }
+    .sidebar__divider { display: none; }
+
+    .sidebar__nav {
+        flex-direction: row;
+        padding: 0;
+        gap: 2px;
+        flex: 1;
+    }
+
+    .sidebar__section-label { display: none; }
+
+    .sidebar__nav-item {
+        padding: 8px 10px;
+        flex-shrink: 0;
+        border-radius: 7px;
+    }
+
+    .sidebar__nav-item.active::before { display: none; }
+
+    .sidebar__footer { padding: 0; flex-shrink: 0; }
+    .sidebar__logout { padding: 8px 10px; }
+    .sidebar__logout span:last-child { display: none; }
+
+    .nav-label { display: none; }
+    .nav-active-dot { display: none; }
+}

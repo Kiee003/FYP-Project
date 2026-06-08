@@ -1,6 +1,81 @@
 import React, { useState } from 'react';
 import './AIInsights.css';
 
+// ── Inline SVG icons (Heroicons / Lucide style, open-source) ─────────────────
+const Icons = {
+    // Header — brain/AI icon
+    ai: (
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M12 2a4 4 0 0 1 4 4v1h1a3 3 0 0 1 0 6h-1v1a4 4 0 0 1-8 0v-1H7a3 3 0 0 1 0-6h1V6a4 4 0 0 1 4-4z"/>
+            <line x1="12" y1="12" x2="12" y2="12.01"/>
+        </svg>
+    ),
+    // Summary card — chart/analytics icon
+    summary: (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="18" y1="20" x2="18" y2="10"/>
+            <line x1="12" y1="20" x2="12" y2="4"/>
+            <line x1="6"  y1="20" x2="6"  y2="14"/>
+            <rect x="1" y="1" width="22" height="22" rx="3" strokeOpacity="0.15" fill="none"/>
+        </svg>
+    ),
+    // Recommendations card — wrench/fix icon
+    fix: (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>
+        </svg>
+    ),
+    // Severity — critical
+    critical: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="8" x2="12" y2="12"/>
+            <line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+    ),
+    // Severity — warning
+    warning: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9" x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+    ),
+    // Severity — info
+    info: (
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8"  x2="12.01" y2="8"/>
+        </svg>
+    ),
+    // Fallback note — alert
+    alert: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/>
+            <line x1="12" y1="9"  x2="12" y2="13"/>
+            <line x1="12" y1="17" x2="12.01" y2="17"/>
+        </svg>
+    ),
+    // Checkmark
+    check: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="20 6 9 17 4 12"/>
+        </svg>
+    ),
+    // Toggle arrows
+    chevronDown: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="6 9 12 15 18 9"/>
+        </svg>
+    ),
+    chevronRight: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <polyline points="9 18 15 12 9 6"/>
+        </svg>
+    ),
+};
+
 const AIInsights = ({ insights, loading, error }) => {
     const [expanded, setExpanded] = useState({});
 
@@ -8,7 +83,7 @@ const AIInsights = ({ insights, loading, error }) => {
         return (
             <div className="ai-insights loading">
                 <div className="loading-spinner"></div>
-                <p>🤖 AI is analysing your website performance...</p>
+                <p>AI is analysing your website performance...</p>
             </div>
         );
     }
@@ -16,59 +91,64 @@ const AIInsights = ({ insights, loading, error }) => {
     if (error) {
         return (
             <div className="ai-insights error">
-                <p>⚠️ Could not load AI insights. Please try again.</p>
+                <p>Could not load AI insights. Please try again.</p>
             </div>
         );
     }
 
-    if (!insights) {
-        return null;
-    }
+    if (!insights) return null;
 
     const toggleExpand = (key) => {
         setExpanded(prev => ({ ...prev, [key]: !prev[key] }));
     };
 
     const severityConfig = {
-        critical: { icon: '🚨', label: 'Critical', className: 'critical' },
-        warning:  { icon: '⚠️',  label: 'Needs Fix', className: 'warning' },
-        info:     { icon: 'ℹ️',  label: 'Note', className: 'info' },
+        critical: { icon: Icons.critical, label: 'Critical', className: 'critical' },
+        warning:  { icon: Icons.warning,  label: 'Needs Fix', className: 'warning' },
+        info:     { icon: Icons.info,     label: 'Note',      className: 'info' },
     };
 
     return (
         <div className="ai-insights">
+            {/* Header */}
             <div className="ai-header">
-                <h2>🤖 AI Performance Analysis</h2>
+                <h2>
+                    <span className="ai-header__icon">{Icons.ai}</span>
+                    AI Performance Analysis
+                </h2>
                 <span className="ai-badge">
                     {insights.isRealAI ? 'Powered by DeepSeek' : 'Metrics-Based Analysis'}
                 </span>
             </div>
 
-            {/* Verdict — one-line honest summary */}
+            {/* Verdict */}
             {insights.verdict && (
                 <div className="verdict-banner">
                     <span className="verdict-text">{insights.verdict}</span>
                 </div>
             )}
 
-            {/* Full AI Summary */}
+            {/* Summary card */}
             <div className="insight-card summary-card">
-                <div className="card-icon">📊</div>
+                <div className="card-icon">{Icons.summary}</div>
                 <div className="card-content">
                     <h3>What This Means For Your Visitors</h3>
                     {insights.summary.split('\n').filter(p => p.trim()).map((paragraph, i) => (
                         <p key={i} className="summary-text">{paragraph}</p>
                     ))}
                     {insights.note && (
-                        <p className="fallback-note">⚠️ {insights.note}</p>
+                        <p className="fallback-note">
+                            <span className="fallback-note__icon">{Icons.alert}</span>
+                            {insights.note}
+                        </p>
                     )}
                 </div>
             </div>
 
-            {/* AI-Generated Recommendations */}
+            {/* Recommendations card */}
             {insights.recommendations && insights.recommendations.length > 0 && (
                 <div className="insight-card recommendations-card">
-                    <div className="card-icon">💡</div>
+                    <div className="card-icon">{Icons.fix}</div>
                     <div className="card-content">
                         <h3>What To Fix</h3>
                         <div className="recommendations-list">
@@ -98,13 +178,17 @@ const AIInsights = ({ insights, loading, error }) => {
                                                     className="action-toggle"
                                                     onClick={() => toggleExpand(`rec-${idx}`)}
                                                 >
-                                                    {expanded[`rec-${idx}`] ? '▼ Hide steps' : '▶ Show step-by-step guide'}
+                                                    <span className="action-toggle__icon">
+                                                        {expanded[`rec-${idx}`] ? Icons.chevronDown : Icons.chevronRight}
+                                                    </span>
+                                                    {expanded[`rec-${idx}`] ? 'Hide steps' : 'Show step-by-step guide'}
                                                 </button>
                                                 {expanded[`rec-${idx}`] && (
                                                     <ul className="action-items">
                                                         {rec.actionItems.map((action, actionIdx) => (
                                                             <li key={actionIdx}>
-                                                                <span className="checkmark">✓</span> {action}
+                                                                <span className="checkmark">{Icons.check}</span>
+                                                                {action}
                                                             </li>
                                                         ))}
                                                     </ul>

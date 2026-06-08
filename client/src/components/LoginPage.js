@@ -2,9 +2,41 @@ import React, { useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import './LoginPage.css';
 
+// Clean SVG performance gauge icon — no emoji
+const PerformanceIcon = () => (
+    <svg width="48" height="48" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+        {/* Outer arc (gauge track) */}
+        <path
+            d="M8 34 A18 18 0 1 1 40 34"
+            stroke="rgba(255,255,255,0.25)"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            fill="none"
+        />
+        {/* Filled arc (performance indicator) */}
+        <path
+            d="M8 34 A18 18 0 0 1 35.1 15.9"
+            stroke="white"
+            strokeWidth="3.5"
+            strokeLinecap="round"
+            fill="none"
+        />
+        {/* Needle */}
+        <line
+            x1="24" y1="34"
+            x2="33" y2="16"
+            stroke="white"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+        />
+        {/* Needle base dot */}
+        <circle cx="24" cy="34" r="3" fill="white" />
+    </svg>
+);
+
 const LoginPage = () => {
     const { login, register } = useAuth();
-    const [mode, setMode] = useState('login'); // 'login' | 'register'
+    const [mode, setMode] = useState('login');
     const [form, setForm] = useState({ username: '', email: '', password: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -32,15 +64,9 @@ const LoginPage = () => {
                 }
                 result = await register(form.username, form.email, form.password);
             }
-
-            if (!result.success) {
-                setError(result.error || 'Something went wrong');
-            }
-            // On success, AuthContext updates user → App.js renders Dashboard automatically
-
+            if (!result.success) setError(result.error || 'Something went wrong');
         } catch (err) {
-            const msg = err.response?.data?.error || 'Could not connect to server';
-            setError(msg);
+            setError(err.response?.data?.error || 'Could not connect to server');
         } finally {
             setLoading(false);
         }
@@ -55,14 +81,17 @@ const LoginPage = () => {
     return (
         <div className="login-page">
             <div className="login-card">
+
                 {/* Header */}
                 <div className="login-header">
-                    <div className="login-logo">🚀</div>
+                    <div className="login-icon-wrap">
+                        <PerformanceIcon />
+                    </div>
                     <h1>Web Performance Dashboard</h1>
-                    <p>Analyse, optimise, and monitor your website</p>
+                    <p>Analyse, Optimise and Monitor Your website</p>
                 </div>
 
-                {/* Tab switcher */}
+                {/* Tabs */}
                 <div className="login-tabs">
                     <button
                         className={`tab-btn ${mode === 'login' ? 'active' : ''}`}
@@ -127,15 +156,29 @@ const LoginPage = () => {
                                 className="show-password"
                                 onClick={() => setShowPassword(p => !p)}
                                 tabIndex={-1}
+                                aria-label={showPassword ? 'Hide password' : 'Show password'}
                             >
-                                {showPassword ? '🙈' : '👁️'}
+                                {/* Eye icon SVG instead of emoji */}
+                                {showPassword ? (
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94"/>
+                                        <path d="M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19"/>
+                                        <line x1="1" y1="1" x2="23" y2="23"/>
+                                    </svg>
+                                ) : (
+                                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                                        <circle cx="12" cy="12" r="3"/>
+                                    </svg>
+                                )}
                             </button>
                         </div>
                     </div>
 
                     {error && (
                         <div className="login-error">
-                            ❌ {error}
+                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                            {error}
                         </div>
                     )}
 
@@ -147,14 +190,22 @@ const LoginPage = () => {
                     </button>
                 </form>
 
-                {/* Footer note */}
+                {/* Footer */}
                 <div className="login-footer">
                     {mode === 'register' ? (
                         <p>
-                            The <strong>first account registered</strong> becomes the Admin automatically.
+                            Already have an account?{' '}
+                            <button className="link-btn" onClick={() => switchMode('login')}>
+                                Sign in
+                            </button>
                         </p>
                     ) : (
-                        <p>Don't have an account? <button className="link-btn" onClick={() => switchMode('register')}>Create one</button></p>
+                        <p>
+                            Don't have an account?{' '}
+                            <button className="link-btn" onClick={() => switchMode('register')}>
+                                Create one
+                            </button>
+                        </p>
                     )}
                 </div>
             </div>

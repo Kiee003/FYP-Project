@@ -15,6 +15,19 @@ function isValidUrl(url) {
     }
 }
 
+// Ownership / access check used for single-audit access and exports.
+// Admin: unrestricted. Moderator: only audits belonging to their assigned users.
+// Normal: only their own audits.
+function canAccessAudit(audit, user) {
+    if (!audit) return false;
+    if (user.role === 'admin') return true;
+    if (user.role === 'moderator') {
+        const assignedIds = database.getAssignedUserIds(user.id);
+        return assignedIds.includes(audit.user_id);
+    }
+    return audit.user_id === user.id;
+}
+
 // ============================================
 // MAIN AUDIT ENDPOINT — all authenticated users
 // ============================================
@@ -31,7 +44,6 @@ router.post('/audit', verifyToken, async (req, res) => {
         if (!url) {
             return res.status(400).json({ success: false, error: 'URL is required' });
         }
-
         if (!isValidUrl(url)) {
             return res.status(400).json({
                 success: false,
@@ -53,9 +65,9 @@ router.post('/audit', verifyToken, async (req, res) => {
 
         if (results && results.scores && results.scores.performance > 0) {
             try {
-                // Pass the logged-in user's ID so history is linked to them
-                database.saveAudit(results, req.user.id);
-                console.log(`💾 Audit saved for user: ${req.user.email}`);
+                const savedId = database.saveAudit(results, req.user.id);
+                results.id = savedId;
+                console.log(`💾 Audit saved for user: ${req.user.email} (ID: ${savedId})`);
             } catch (dbError) {
                 console.log('⚠️ Database save failed:', dbError.message);
             }
@@ -81,8 +93,9 @@ router.post('/audit', verifyToken, async (req, res) => {
 });
 
 // ============================================
-// HISTORY — normal users see own audits only,
-//           moderator/admin see all
+// HISTORY for a specific URL — tied to the URL you're
+// actively analysing, not the "browse other users" flow.
+// Always scoped to the logged-in account, for every role.
 // ============================================
 router.get('/history/:url', verifyToken, async (req, res) => {
     try {
@@ -90,11 +103,12 @@ router.get('/history/:url', verifyToken, async (req, res) => {
         const limit = req.query.limit || 10;
         const decodedUrl = decodeURIComponent(url);
 
-        // Normal users only see their own history
-        const userId = req.user.role === 'normal' ? req.user.id : null;
+        // Audit History is personal — always scoped to the logged-in account, regardless of role
+        const userId = req.user.id;
         const history = database.getAuditHistory(decodedUrl, parseInt(limit), userId);
+        const totalCount = database.getAuditCountForUrl(decodedUrl, userId);
 
-        res.json({ success: true, data: history, count: history.length });
+        res.json({ success: true, data: history, count: history.length, totalCount });
     } catch (error) {
         console.error('❌ Failed to fetch history:', error.message);
         res.status(500).json({ success: false, error: error.message });
@@ -102,15 +116,45 @@ router.get('/history/:url', verifyToken, async (req, res) => {
 });
 
 // ============================================
-// ALL AUDITS (global) — moderator+ only
+// ALL AUDITS (User Audit Data page)
+// Admin: every audit, unrestricted.
+// Moderator: only audits from their assigned users.
 // ============================================
 router.get('/audits', verifyToken, requireMinRole('moderator'), async (req, res) => {
     try {
-        const limit = req.query.limit || 50;
-        const audits = database.getAllAudits(parseInt(limit));
+        const limit = parseInt(req.query.limit) || 50;
+        let audits;
+
+        if (req.user.role === 'admin') {
+            audits = database.getAllAudits(limit);
+        } else {
+            // Moderator — restrict to assigned users only
+            const assignedUserIds = database.getAssignedUserIds(req.user.id);
+            audits = assignedUserIds.length > 0
+                ? database.getAuditsForUserIds(assignedUserIds, limit)
+                : [];
+        }
+
         res.json({ success: true, data: audits, count: audits.length });
     } catch (error) {
         console.error('❌ Failed to fetch audits:', error.message);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ============================================
+// MY AUDITS — every authenticated user (any role).
+// All websites this account has audited, regardless of
+// the role-based "User Audit Data" restrictions above.
+// ============================================
+router.get('/audits/mine', verifyToken, async (req, res) => {
+    try {
+        const limit = parseInt(req.query.limit) || 100;
+        const audits = database.getAuditsForUserIds([req.user.id], limit);
+
+        res.json({ success: true, data: audits, count: audits.length });
+    } catch (error) {
+        console.error('❌ Failed to fetch your audits:', error.message);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -160,13 +204,21 @@ router.get('/statistics', verifyToken, requireMinRole('admin'), async (req, res)
 });
 
 // ============================================
-// DELETE AUDIT — moderator+ only
+// DELETE AUDIT — moderator+ only, must be within access scope
 // ============================================
 router.delete('/audit/:id', verifyToken, requireMinRole('moderator'), async (req, res) => {
     try {
         const { id } = req.params;
-        const deleted = database.deleteAudit(parseInt(id));
+        const audit = database.db.prepare(`SELECT * FROM audits WHERE id = ?`).get(parseInt(id));
 
+        if (!audit) {
+            return res.status(404).json({ success: false, error: `Audit ${id} not found` });
+        }
+        if (!canAccessAudit(audit, req.user)) {
+            return res.status(403).json({ success: false, error: 'You are not assigned to this user' });
+        }
+
+        const deleted = database.deleteAudit(parseInt(id));
         if (deleted) {
             console.log(`🗑️ Audit ${id} deleted by ${req.user.email} (${req.user.role})`);
             res.json({ success: true, message: `Audit ${id} deleted successfully` });
@@ -180,14 +232,14 @@ router.delete('/audit/:id', verifyToken, requireMinRole('moderator'), async (req
 });
 
 // ============================================
-// TREND DATA — normal sees own, moderator+ sees all
+// TREND DATA — always scoped to the logged-in account, for every role
 // ============================================
 router.get('/trend/:url', verifyToken, async (req, res) => {
     try {
         const decodedUrl = decodeURIComponent(req.params.url);
         const limit = parseInt(req.query.limit) || 10;
 
-        const userId = req.user.role === 'normal' ? req.user.id : null;
+        const userId = req.user.id;
         const history = database.getAuditHistory(decodedUrl, limit, userId);
 
         const trendData = {
@@ -211,16 +263,9 @@ router.get('/trend/:url', verifyToken, async (req, res) => {
 });
 
 // ============================================
-// EXPORT — normal users can export their own audits only,
-//          moderator+ can export anything
+// EXPORT — single-audit exports respect canAccessAudit
+// (normal: own only, moderator: assigned users only, admin: all)
 // ============================================
-
-// Helper: check audit ownership for normal users
-function canAccessAudit(audit, user) {
-    if (!audit) return false;
-    if (user.role !== 'normal') return true; // moderator/admin can access all
-    return audit.user_id === user.id;        // normal users: must own it
-}
 
 router.get('/export/json/:id', verifyToken, async (req, res) => {
     try {
@@ -228,7 +273,7 @@ router.get('/export/json/:id', verifyToken, async (req, res) => {
 
         if (!audit) return res.status(404).json({ success: false, error: 'Audit not found' });
         if (!canAccessAudit(audit, req.user)) {
-            return res.status(403).json({ success: false, error: 'You can only export your own audits' });
+            return res.status(403).json({ success: false, error: 'You do not have access to this audit' });
         }
 
         res.json({ success: true, data: audit });
@@ -244,7 +289,7 @@ router.get('/export/csv/:id', verifyToken, async (req, res) => {
 
         if (!audit) return res.status(404).json({ success: false, error: 'Audit not found' });
         if (!canAccessAudit(audit, req.user)) {
-            return res.status(403).json({ success: false, error: 'You can only export your own audits' });
+            return res.status(403).json({ success: false, error: 'You do not have access to this audit' });
         }
 
         const headers = ['id','url','timestamp','performance_score','lcp(s)','fcp(s)','ttfb(s)','cls','tbt(s)','requests','ai_summary'];
@@ -270,8 +315,8 @@ router.get('/export/url/:url/csv', verifyToken, async (req, res) => {
     try {
         const decodedUrl = decodeURIComponent(req.params.url);
 
-        // Normal users only export their own; moderator+ export all
-        const userId = req.user.role === 'normal' ? req.user.id : null;
+        // Audit History export is personal — always scoped to the logged-in account
+        const userId = req.user.id;
         const history = database.getAuditHistory(decodedUrl, 100, userId);
 
         if (history.length === 0) {
@@ -309,9 +354,11 @@ router.post('/compare', verifyToken, async (req, res) => {
             const placeholders = auditIds.map(() => '?').join(',');
             auditsToCompare = database.db.prepare(`SELECT * FROM audits WHERE id IN (${placeholders})`).all(auditIds);
 
-            // Normal users can only compare their own audits
             if (req.user.role === 'normal') {
                 auditsToCompare = auditsToCompare.filter(a => a.user_id === req.user.id);
+            } else if (req.user.role === 'moderator') {
+                const assignedIds = database.getAssignedUserIds(req.user.id);
+                auditsToCompare = auditsToCompare.filter(a => assignedIds.includes(a.user_id));
             }
         } else if (urls && urls.length >= 2) {
             for (const url of urls) {
@@ -400,24 +447,6 @@ router.post('/crawl/analyze', verifyToken, async (req, res) => {
             }
         }
 
-        const targetDomain = 'istudent.uitm.edu.my';
-        const targetLinks = links.filter(link => link.url.includes(targetDomain));
-        let targetPageContent = null;
-
-        if (targetLinks.length > 0) {
-            try {
-                const targetResponse = await fetch(targetLinks[0].url, {
-                    headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36' },
-                    timeout: 30000
-                });
-                if (targetResponse.ok) {
-                    targetPageContent = await targetResponse.text();
-                }
-            } catch (targetError) {
-                console.log(`⚠️ Failed to download target page: ${targetError.message}`);
-            }
-        }
-
         res.json({
             success: true,
             data: {
@@ -426,12 +455,6 @@ router.post('/crawl/analyze', verifyToken, async (req, res) => {
                 totalLinksFound: links.length,
                 internalLinks: links.filter(l => l.isInternal).length,
                 externalLinks: links.filter(l => !l.isInternal).length,
-                targetDomainLinks: targetLinks.map(l => ({ url: l.url, text: l.text })),
-                targetPageContent: targetPageContent ? {
-                    length: targetPageContent.length,
-                    preview: targetPageContent.substring(0, 2000),
-                    fullContent: targetPageContent
-                } : null,
                 allLinks: links.slice(0, 100)
             }
         });
@@ -442,7 +465,7 @@ router.post('/crawl/analyze', verifyToken, async (req, res) => {
 });
 
 // ============================================
-// GET SINGLE AUDIT — ownership check for normal users
+// GET SINGLE AUDIT — respects canAccessAudit
 // ============================================
 router.get('/audit/:id', verifyToken, async (req, res) => {
     try {
@@ -450,7 +473,7 @@ router.get('/audit/:id', verifyToken, async (req, res) => {
 
         if (!audit) return res.status(404).json({ success: false, error: 'Audit not found' });
         if (!canAccessAudit(audit, req.user)) {
-            return res.status(403).json({ success: false, error: 'Access denied' });
+            return res.status(403).json({ success: false, error: 'You do not have access to this audit' });
         }
 
         res.json({ success: true, data: audit });
@@ -463,7 +486,6 @@ router.get('/audit/:id', verifyToken, async (req, res) => {
 // SYSTEM ENDPOINTS
 // ============================================
 
-// Health — public (no auth needed, useful for uptime monitors)
 router.get('/health', async (req, res) => {
     try {
         const stats = database.getStatistics();
@@ -483,7 +505,6 @@ router.get('/health', async (req, res) => {
     }
 });
 
-// Queue status — moderator+ only
 router.get('/queue/status', verifyToken, requireMinRole('moderator'), (req, res) => {
     try {
         const status = auditQueue.getStatus();
@@ -493,7 +514,6 @@ router.get('/queue/status', verifyToken, requireMinRole('moderator'), (req, res)
     }
 });
 
-// Test — public
 router.get('/test', (req, res) => {
     res.json({
         success: true,

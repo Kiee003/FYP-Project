@@ -3,6 +3,7 @@ import { runAudit } from '../services/api';
 import AIInsights from './AIInsights';
 import LoadingIndicator from './LoadingIndicator';
 import AuditHistory from './AuditHistory';
+import MyAuditedWebsites from './MyAuditedWebsites';
 import UrlCrawler from './UrlCrawler';
 import ComparisonView from './ComparisonView';
 import UserAuditManager from './UserAuditManager';
@@ -86,11 +87,12 @@ const Dashboard = () => {
     };
 
     const PANEL_TITLES = {
-        history:  'Audit History',
-        compare:  'Compare Performance',
-        crawler:  'URL Crawler',
-        userdata: 'User Audit Data',
-        accounts: 'Manage Accounts',
+        history:   'Audit History',
+        mywebsites:'My Audited Websites',
+        compare:   'Compare Performance',
+        crawler:   'URL Crawler',
+        userdata:  'User Audit Data',
+        accounts:  'Manage Accounts',
     };
 
     return (
@@ -200,19 +202,35 @@ const Dashboard = () => {
                     <div className="panel-section">
                         <div className="panel-section__header">
                             <h2>{PANEL_TITLES[activePanel]}</h2>
-                            <button className="panel-section__close" onClick={() => setActivePanel(null)}>
-                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ marginRight: '5px', verticalAlign: 'middle' }}>
-                                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                                </svg>
-                                Close
-                            </button>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                                {activePanel === 'history' && (
+                                    <button
+                                        className="panel-section__action"
+                                        onClick={() => setActivePanel('mywebsites')}
+                                        title="See every website you've audited"
+                                    >
+                                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px', verticalAlign: 'middle' }}>
+                                            <circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/>
+                                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                                        </svg>
+                                        My Audited Websites
+                                    </button>
+                                )}
+                                <button className="panel-section__close" onClick={() => setActivePanel(null)}>
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ marginRight: '5px', verticalAlign: 'middle' }}>
+                                        <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                                    </svg>
+                                    Close
+                                </button>
+                            </div>
                         </div>
 
-                        {activePanel === 'history'  && <AuditHistory url={results?.url} />}
-                        {activePanel === 'compare'  && <ComparisonView currentAuditId={results?.id} currentUrl={results?.url} />}
-                        {activePanel === 'crawler'  && <UrlCrawler />}
-                        {activePanel === 'userdata' && <UserAuditManager />}
-                        {activePanel === 'accounts' && <AdminPanel onClose={() => setActivePanel(null)} />}
+                        {activePanel === 'history'    && <AuditHistory url={results?.url} />}
+                        {activePanel === 'mywebsites' && <MyAuditedWebsites />}
+                        {activePanel === 'compare'    && <ComparisonView currentAuditId={results?.id} currentUrl={results?.url} />}
+                        {activePanel === 'crawler'    && <UrlCrawler />}
+                        {activePanel === 'userdata'   && <UserAuditManager />}
+                        {activePanel === 'accounts'   && <AdminPanel onClose={() => setActivePanel(null)} />}
                     </div>
                 )}
             </main>

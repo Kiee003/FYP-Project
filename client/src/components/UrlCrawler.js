@@ -34,13 +34,6 @@ const Icons = {
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
         </svg>
     ),
-    target: (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <circle cx="12" cy="12" r="10"/>
-            <circle cx="12" cy="12" r="6"/>
-            <circle cx="12" cy="12" r="2"/>
-        </svg>
-    ),
     list: (
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <line x1="8"  y1="6"  x2="21" y2="6"/>
@@ -49,12 +42,6 @@ const Icons = {
             <line x1="3"  y1="6"  x2="3.01" y2="6"/>
             <line x1="3"  y1="12" x2="3.01" y2="12"/>
             <line x1="3"  y1="18" x2="3.01" y2="18"/>
-        </svg>
-    ),
-    code: (
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <polyline points="16 18 22 12 16 6"/>
-            <polyline points="8 6 2 12 8 18"/>
         </svg>
     ),
 };
@@ -105,43 +92,6 @@ const UrlCrawler = () => {
         } finally {
             setLoading(false);
         }
-    };
-
-    const renderTargetContent = () => {
-        if (!result?.targetPageContent) return null;
-        const content = result.targetPageContent;
-        return (
-            <div style={{ background: '#1e1e1e', color: '#d4d4d4', borderRadius: '8px', overflow: 'hidden', marginTop: '15px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '14px 16px 0', color: '#fff' }}>
-                    <span style={{ display: 'flex', color: '#a29bfe' }}>{Icons.code}</span>
-                    <h4 style={{ margin: 0, fontSize: '13px', fontWeight: '600' }}>
-                        Target Page Source Code (istudent.uitm.edu.my)
-                    </h4>
-                </div>
-                <details style={{ padding: '10px 16px 14px' }}>
-                    <summary style={{ cursor: 'pointer', color: '#a29bfe', fontWeight: '500', fontSize: '13px' }}>
-                        View Source Code Preview
-                    </summary>
-                    <pre style={{
-                        background: '#2d2d2d',
-                        padding: '14px',
-                        borderRadius: '5px',
-                        overflowX: 'auto',
-                        fontSize: '12px',
-                        fontFamily: 'Courier New, monospace',
-                        maxHeight: '400px',
-                        overflowY: 'auto',
-                        marginTop: '10px',
-                    }}>
-                        {content.preview}
-                        {content.length > 2000 && '\n\n...(truncated)...'}
-                    </pre>
-                </details>
-                <p style={{ padding: '0 16px 12px', fontSize: '11px', color: '#888', textAlign: 'right', margin: 0 }}>
-                    Total size: {(content.length / 1024).toFixed(2)} KB
-                </p>
-            </div>
-        );
     };
 
     return (
@@ -265,29 +215,6 @@ const UrlCrawler = () => {
                             ))}
                         </div>
                     </div>
-
-                    {/* Target domain links */}
-                    {result.targetDomainLinks && result.targetDomainLinks.length > 0 && (
-                        <div style={{ marginBottom: '20px', padding: '14px', background: '#f8f9fa', borderRadius: '8px' }}>
-                            <SectionHeader icon={Icons.target} title="Found istudent.uitm.edu.my Links" />
-                            <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
-                                {result.targetDomainLinks.map((link, idx) => (
-                                    <li key={idx} style={{ padding: '8px 0', borderBottom: '1px solid #eee', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                                        <span style={{ display: 'flex', color: '#4caf50', flexShrink: 0 }}>{Icons.link}</span>
-                                        <a href={link.url} target="_blank" rel="noopener noreferrer" style={{ color: '#2196f3', textDecoration: 'none', fontSize: '13px', wordBreak: 'break-all', flex: 1 }}>
-                                            {link.url}
-                                        </a>
-                                        {link.text && (
-                                            <span style={{ color: '#888', fontSize: '12px' }}>{link.text}</span>
-                                        )}
-                                    </li>
-                                ))}
-                            </ul>
-                        </div>
-                    )}
-
-                    {/* Target page source */}
-                    {renderTargetContent()}
 
                     {/* All links */}
                     {result.allLinks && result.allLinks.length > 0 && (

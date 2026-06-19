@@ -1,7 +1,8 @@
 ## 📋 Project Summary: Web Performance Dashboard using Google Lighthouse with DeepSeek API
 
 ### 🎯 Project Overview
-A web-based dashboard that automates Google Lighthouse performance audits and uses DeepSeek AI to generate user-friendly, non-technical analysis and recommendations for website optimization.
+A web-based dashboard that automates Google Lighthouse performance audits and uses DeepSeek AI to generate user-friendly, 
+non-technical analysis and recommendations for website optimization.
 
 ---
 
@@ -36,7 +37,13 @@ D:\FYP-Project\
 │   │   │   ├── ComparisonView.js
 │   │   │   ├── UrlCrawler.js (detects child-website from main website)
 │   │   │   ├── LoadingIndicator.js
+│   │   │   ├── AdminPanel.js
+│   │   │   ├── LoginPage.js
+│   │   │   ├── Sidebar.js
+│   │   │   ├── UserAuditManager.js
 │   │   │   └── *.css files
+│   │   ├── context/
+│   │   │   └── AuthContext.js
 │   │   ├── services/
 │   │   │   └── api.js
 │   │   └── package.json (has chart.js, file-saver, axios)
@@ -45,8 +52,10 @@ D:\FYP-Project\
 │   ├── data/
 │   │   └── audit_history.db (SQLite database)
 │   ├── routes/
+│   │   ├── authRoutes.js
 │   │   └── auditRoutes.js (all API endpoints)
 │   ├── deepseekService.js (AI logic - customizable)
+│   ├── authMiddleware.js
 │   ├── lighthouseService.js
 │   ├── database.js
 │   ├── auditQueue.js
@@ -159,10 +168,7 @@ npm start
 
 In the next conversation, I want to discuss:
 
-2. Make login page with 3 type of users (Normal, Admin, Moderator)
-3. The AI analysis somehow feel fake. Change the prompt to make sure the analysis it give pure from the AI.
-4. In AI Analysis section, feel free to take out/delete some section that you think didn't give any benefit.
-   You can also add something for the AI section, but the important thing is the analysis summary it give is real from AI.
+1. Do the testing for Dashboard and AI.
 
 ---
 

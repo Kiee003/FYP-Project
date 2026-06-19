@@ -6,7 +6,6 @@ const database = require('../database');
 const { verifyToken, requireMinRole, requireRole, signToken } = require('../authMiddleware');
 
 // ─── REGISTER ─────────────────────────────────────────────────────────────────
-// POST /api/auth/register
 router.post('/register', async (req, res) => {
     try {
         const { username, email, password } = req.body;
@@ -14,26 +13,21 @@ router.post('/register', async (req, res) => {
         if (!username || !email || !password) {
             return res.status(400).json({ success: false, error: 'Username, email and password are required' });
         }
-
         if (password.length < 6) {
             return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
         }
 
-        // Check if email already exists
         const existing = database.getUserByEmail(email);
         if (existing) {
             return res.status(409).json({ success: false, error: 'An account with this email already exists' });
         }
 
         const passwordHash = await bcrypt.hash(password, 12);
-
-        // First registered user becomes admin
         const userCount = database.getUserCount();
         const role = userCount === 0 ? 'admin' : 'normal';
 
         const userId = database.createUser(username, email, passwordHash, role);
         const user = database.getUserById(userId);
-
         const token = signToken(user);
 
         console.log(`✅ New user registered: ${email} (role: ${role})`);
@@ -54,7 +48,6 @@ router.post('/register', async (req, res) => {
 });
 
 // ─── LOGIN ────────────────────────────────────────────────────────────────────
-// POST /api/auth/login
 router.post('/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -91,7 +84,6 @@ router.post('/login', async (req, res) => {
 });
 
 // ─── GET CURRENT USER ─────────────────────────────────────────────────────────
-// GET /api/auth/me
 router.get('/me', verifyToken, (req, res) => {
     const user = database.getUserById(req.user.id);
     if (!user) {
@@ -101,7 +93,6 @@ router.get('/me', verifyToken, (req, res) => {
 });
 
 // ─── LIST ALL USERS (moderator+) ─────────────────────────────────────────────
-// GET /api/auth/users
 router.get('/users', verifyToken, requireMinRole('moderator'), (req, res) => {
     try {
         const users = database.getAllUsers();
@@ -112,7 +103,6 @@ router.get('/users', verifyToken, requireMinRole('moderator'), (req, res) => {
 });
 
 // ─── CHANGE USER ROLE (admin only) ───────────────────────────────────────────
-// PUT /api/auth/users/:id/role
 router.put('/users/:id/role', verifyToken, requireRole('admin'), (req, res) => {
     try {
         const { id } = req.params;
@@ -121,8 +111,6 @@ router.put('/users/:id/role', verifyToken, requireRole('admin'), (req, res) => {
         if (!['normal', 'moderator', 'admin'].includes(role)) {
             return res.status(400).json({ success: false, error: 'Invalid role. Use: normal, moderator, admin' });
         }
-
-        // Prevent admin from changing their own role
         if (parseInt(id) === req.user.id) {
             return res.status(400).json({ success: false, error: 'You cannot change your own role' });
         }
@@ -141,7 +129,6 @@ router.put('/users/:id/role', verifyToken, requireRole('admin'), (req, res) => {
 });
 
 // ─── DELETE USER (admin only) ─────────────────────────────────────────────────
-// DELETE /api/auth/users/:id
 router.delete('/users/:id', verifyToken, requireRole('admin'), (req, res) => {
     try {
         const { id } = req.params;
@@ -163,8 +150,66 @@ router.delete('/users/:id', verifyToken, requireRole('admin'), (req, res) => {
     }
 });
 
+// ─── MODERATOR ASSIGNMENTS (admin only) ──────────────────────────────────────
+
+// Get all assignments — used to render the assignment UI in Manage Accounts
+router.get('/assignments', verifyToken, requireRole('admin'), (req, res) => {
+    try {
+        const assignments = database.getAllAssignments();
+        res.json({ success: true, assignments });
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Failed to fetch assignments' });
+    }
+});
+
+// Assign a normal user to a moderator
+router.post('/assignments', verifyToken, requireRole('admin'), (req, res) => {
+    try {
+        const { moderatorId, userId } = req.body;
+
+        if (!moderatorId || !userId) {
+            return res.status(400).json({ success: false, error: 'moderatorId and userId are required' });
+        }
+
+        const moderator = database.getUserById(moderatorId);
+        if (!moderator || moderator.role !== 'moderator') {
+            return res.status(400).json({ success: false, error: 'Target is not a moderator' });
+        }
+
+        const targetUser = database.getUserById(userId);
+        if (!targetUser || targetUser.role !== 'normal') {
+            return res.status(400).json({ success: false, error: 'Can only assign normal users' });
+        }
+
+        database.assignUserToModerator(parseInt(moderatorId), parseInt(userId), req.user.id);
+
+        console.log(`✅ Admin ${req.user.email} assigned user ${userId} to moderator ${moderatorId}`);
+        res.json({ success: true, message: 'User assigned successfully' });
+
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Failed to assign user' });
+    }
+});
+
+// Remove an assignment
+router.delete('/assignments/:moderatorId/:userId', verifyToken, requireRole('admin'), (req, res) => {
+    try {
+        const { moderatorId, userId } = req.params;
+        const removed = database.unassignUserFromModerator(parseInt(moderatorId), parseInt(userId));
+
+        if (!removed) {
+            return res.status(404).json({ success: false, error: 'Assignment not found' });
+        }
+
+        console.log(`✅ Admin ${req.user.email} removed assignment (moderator ${moderatorId}, user ${userId})`);
+        res.json({ success: true, message: 'Assignment removed' });
+
+    } catch (error) {
+        res.status(500).json({ success: false, error: 'Failed to remove assignment' });
+    }
+});
+
 // ─── SERVER STATISTICS (admin only) ──────────────────────────────────────────
-// GET /api/auth/stats
 router.get('/stats', verifyToken, requireRole('admin'), (req, res) => {
     try {
         const stats = database.getStatistics();

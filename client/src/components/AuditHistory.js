@@ -13,8 +13,17 @@ const HistoryIcon = () => (
     </svg>
 );
 
+// SVG icon for the URL subtitle
+const LinkIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+    </svg>
+);
+
 const AuditHistory = ({ url }) => {
     const [history, setHistory] = useState([]);
+    const [totalCount, setTotalCount] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [trendData, setTrendData] = useState(null);
@@ -26,7 +35,10 @@ const AuditHistory = ({ url }) => {
         setError(null);
         try {
             const response = await getAuditHistory(url, 10);
-            if (response.success) setHistory(response.data);
+            if (response.success) {
+                setHistory(response.data);
+                setTotalCount(response.totalCount ?? response.data.length);
+            }
         } catch (err) {
             setError('Failed to load audit history');
             console.error(err);
@@ -76,11 +88,46 @@ const AuditHistory = ({ url }) => {
 
             {/* Header row */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#333' }}>
+                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#333', flexWrap: 'wrap' }}>
                     <HistoryIcon />
-                    Audit History
+                    Audit History:
+                    {url && (
+                        <a
+                            href={url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title={url}
+                            style={{
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '5px',
+                                fontSize: '13px',
+                                fontWeight: '500',
+                                color: '#6c5ce7',
+                                textDecoration: 'none',
+                                wordBreak: 'break-all',
+                            }}
+                        >
+                            <LinkIcon />
+                            {url}
+                        </a>
+                    )}
                 </h3>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <span style={{
+                        fontSize: '12px',
+                        color: '#555',
+                        background: '#eee',
+                        padding: '5px 12px',
+                        borderRadius: '14px',
+                        fontWeight: '600',
+                        whiteSpace: 'nowrap',
+                    }}>
+                        {totalCount} total audit{totalCount !== 1 ? 's' : ''}
+                        {totalCount > history.length && (
+                            <span style={{ fontWeight: '400', marginLeft: '4px' }}>(showing latest {history.length})</span>
+                        )}
+                    </span>
                     <button
                         onClick={() => {
                             setShowChart(!showChart);
@@ -113,7 +160,7 @@ const AuditHistory = ({ url }) => {
                 <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden' }}>
                     <thead>
                         <tr style={{ background: '#f1f3f5' }}>
-                            <th style={{ padding: '12px 10px', textAlign: 'center', width: '40px', color: '#888', fontSize: '12px', fontWeight: '600' }}>#</th>
+                            <th style={{ padding: '12px 10px', textAlign: 'center', width: '55px', color: '#888', fontSize: '12px', fontWeight: '600' }}>ID</th>
                             <th style={{ padding: '12px', textAlign: 'left' }}>Date</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>Score</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>LCP</th>
@@ -126,11 +173,11 @@ const AuditHistory = ({ url }) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {history.map((audit, index) => (
+                        {history.map((audit) => (
                             <tr key={audit.id} style={{ borderBottom: '1px solid #eee' }}>
-                                {/* Row number */}
-                                <td style={{ padding: '12px 10px', textAlign: 'center', color: '#aaa', fontSize: '12px', fontWeight: '600' }}>
-                                    {index + 1}
+                                {/* Real database audit ID — used in Compare Performance */}
+                                <td style={{ padding: '12px 10px', textAlign: 'center', color: '#aaa', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }} title="Audit ID — use this to compare by Audit ID">
+                                    #{audit.id}
                                 </td>
                                 <td style={{ padding: '12px' }}>{formatDate(audit.created_at)}</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>

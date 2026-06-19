@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import API from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import ExportButton from './ExportButton';
 import './UserAuditManager.css';
 
@@ -26,14 +27,32 @@ const Icons = {
             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
         </svg>
     ),
+    info: (
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8"  x2="12.01" y2="8"/>
+        </svg>
+    ),
+    userX: (
+        <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>
+            <circle cx="9" cy="7" r="4"/>
+            <line x1="17" y1="8" x2="22" y2="13"/>
+            <line x1="22" y1="8" x2="17" y2="13"/>
+        </svg>
+    ),
 };
 
 const UserAuditManager = () => {
+    const { user } = useAuth();
+    const isModerator = user?.role === 'moderator';
+
     const [audits, setAudits] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [msgText, setMsgText] = useState('');
-    const [msgType, setMsgType] = useState('ok'); // 'ok' | 'err'
+    const [msgType, setMsgType] = useState('ok');
     const [confirmDelete, setConfirmDelete] = useState(null);
     const [search, setSearch] = useState('');
     const [expandedAudit, setExpandedAudit] = useState(null);
@@ -91,19 +110,31 @@ const UserAuditManager = () => {
         a.email?.toLowerCase().includes(search.toLowerCase())
     );
 
+    // Distinct users represented in the current audit list — gives moderators
+    // a sense of how many people's data they're currently viewing
+    const distinctUserCount = new Set(audits.map(a => a.email).filter(Boolean)).size;
+
     return (
         <div className="uam">
 
-            {/* Message bar */}
             {msgText && (
                 <div className={`uam__msg ${msgType === 'ok' ? 'uam__msg--ok' : 'uam__msg--err'}`}>
                     {msgText}
                 </div>
             )}
-
             {error && <div className="uam__msg uam__msg--err">{error}</div>}
 
-            {/* Search row — includes audit count and refresh */}
+            {/* Scope note — only relevant for moderators */}
+            {isModerator && !loading && (
+                <div className="uam__scope-note">
+                    <span style={{ display: 'flex', flexShrink: 0 }}>{Icons.info}</span>
+                    {audits.length > 0
+                        ? `Showing audit data for ${distinctUserCount} assigned user${distinctUserCount !== 1 ? 's' : ''}. Contact an admin to request access to more users.`
+                        : 'You have not been assigned to view any users yet.'}
+                </div>
+            )}
+
+            {/* Search row */}
             <div className="uam__search-row">
                 <input
                     className="uam__search"
@@ -120,11 +151,33 @@ const UserAuditManager = () => {
                 </button>
             </div>
 
-            {/* Table */}
+            {/* Body */}
             {loading ? (
                 <div className="uam__loading">Loading audit data...</div>
+
+            ) : audits.length === 0 ? (
+                // No audits at all — distinguish why, based on role
+                <div className="uam__empty-state">
+                    <span className="uam__empty-icon">{Icons.userX}</span>
+                    {isModerator ? (
+                        <>
+                            <p className="uam__empty-title">No assigned users yet</p>
+                            <p className="uam__empty-text">
+                                An admin needs to assign you to one or more users in <strong>Manage Accounts</strong> before
+                                their audit data will appear here.
+                            </p>
+                        </>
+                    ) : (
+                        <>
+                            <p className="uam__empty-title">No audits yet</p>
+                            <p className="uam__empty-text">Once users start running audits, their data will appear here.</p>
+                        </>
+                    )}
+                </div>
+
             ) : filtered.length === 0 ? (
-                <div className="uam__empty">No audits found{search ? ' matching your search' : ''}.</div>
+                <div className="uam__empty">No audits found matching your search.</div>
+
             ) : (
                 <div className="uam__table-wrap">
                     <table className="uam__table">
@@ -167,10 +220,7 @@ const UserAuditManager = () => {
                                         <td className="uam__date">{formatDate(audit.created_at)}</td>
                                         <td>
                                             <div className="uam__actions">
-                                                {/* JSON + CSV + PDF via ExportButton */}
                                                 <ExportButton auditId={audit.id} type="single" />
-
-                                                {/* Delete */}
                                                 {confirmDelete === audit.id ? (
                                                     <div className="uam__confirm">
                                                         <button className="uam__btn uam__btn--yes" onClick={() => handleDelete(audit.id)}>Yes</button>
@@ -189,7 +239,6 @@ const UserAuditManager = () => {
                                         </td>
                                     </tr>
 
-                                    {/* Expanded detail row */}
                                     {expandedAudit === audit.id && (
                                         <tr className="uam__detail-row">
                                             <td colSpan={6}>

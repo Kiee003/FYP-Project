@@ -2,7 +2,6 @@ const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure database directory exists
 const dbDir = path.join(__dirname, 'data');
 if (!fs.existsSync(dbDir)) {
     fs.mkdirSync(dbDir, { recursive: true });
@@ -63,6 +62,19 @@ function initializeDatabase() {
         )
     `);
 
+    // Moderator assignments — many-to-many: a moderator can be assigned multiple
+    // users, and a user can be assigned to multiple moderators.
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS moderator_assignments (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            moderator_id INTEGER NOT NULL REFERENCES users(id),
+            user_id INTEGER NOT NULL REFERENCES users(id),
+            assigned_by INTEGER REFERENCES users(id),
+            assigned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE(moderator_id, user_id)
+        )
+    `);
+
     // Migration: add user_id to existing audits table if not present
     try {
         db.exec(`ALTER TABLE audits ADD COLUMN user_id INTEGER REFERENCES users(id)`);
@@ -74,6 +86,8 @@ function initializeDatabase() {
     db.exec(`CREATE INDEX IF NOT EXISTS idx_url ON audits(url)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_timestamp ON audits(timestamp)`);
     db.exec(`CREATE INDEX IF NOT EXISTS idx_user_id ON audits(user_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_mod_assign_moderator ON moderator_assignments(moderator_id)`);
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_mod_assign_user ON moderator_assignments(user_id)`);
 
     console.log('✅ Database tables and indexes ready');
 }
@@ -112,6 +126,7 @@ const saveAudit = (auditData, userId = null) => {
 
     console.log(`💾 Audit saved with ID: ${info.lastInsertRowid} (user: ${userId || 'anonymous'})`);
     updateWebsiteStats(url, scores.performance);
+    return info.lastInsertRowid;
 };
 
 const updateWebsiteStats = (url, score) => {
@@ -140,7 +155,6 @@ const updateWebsiteStats = (url, score) => {
     }
 };
 
-// Get history for a URL — optionally filter by user (for normal users)
 const getAuditHistory = (url, limit = 10, userId = null) => {
     if (userId) {
         return db.prepare(`
@@ -154,13 +168,37 @@ const getAuditHistory = (url, limit = 10, userId = null) => {
     `).all(url, limit);
 };
 
-// Get all audits — moderator/admin only
+// True total count of audits for a URL — unaffected by any display LIMIT,
+// so the UI can show "X total audits" even when only showing the latest 10.
+const getAuditCountForUrl = (url, userId = null) => {
+    if (userId) {
+        return db.prepare(`
+            SELECT COUNT(*) as count FROM audits WHERE url = ? AND user_id = ?
+        `).get(url, userId).count;
+    }
+    return db.prepare(`SELECT COUNT(*) as count FROM audits WHERE url = ?`).get(url).count;
+};
+
+// Get ALL audits — admin only, unrestricted
 const getAllAudits = (limit = 50) => {
     return db.prepare(`
         SELECT a.*, u.username, u.email FROM audits a
         LEFT JOIN users u ON a.user_id = u.id
         ORDER BY a.created_at DESC LIMIT ?
     `).all(limit);
+};
+
+// Get audits restricted to a specific set of user IDs — used for moderators
+// viewing only their assigned users' data
+const getAuditsForUserIds = (userIds, limit = 50) => {
+    if (!userIds || userIds.length === 0) return [];
+    const placeholders = userIds.map(() => '?').join(',');
+    return db.prepare(`
+        SELECT a.*, u.username, u.email FROM audits a
+        LEFT JOIN users u ON a.user_id = u.id
+        WHERE a.user_id IN (${placeholders})
+        ORDER BY a.created_at DESC LIMIT ?
+    `).all(...userIds, limit);
 };
 
 const getWebsiteStats = (url) => db.prepare(`SELECT * FROM websites WHERE url = ?`).get(url);
@@ -214,10 +252,23 @@ const getAllUsers = () =>
 
 const updateUserRole = (id, role) => {
     const info = db.prepare(`UPDATE users SET role = ? WHERE id = ?`).run(role, id);
+
+    // Keep assignment table consistent with role changes
+    if (role !== 'moderator') {
+        // No longer a moderator — drop assignments where they were the moderator
+        db.prepare(`DELETE FROM moderator_assignments WHERE moderator_id = ?`).run(id);
+    }
+    if (role !== 'normal') {
+        // No longer a normal user — drop assignments where they were the assignee
+        db.prepare(`DELETE FROM moderator_assignments WHERE user_id = ?`).run(id);
+    }
+
     return info.changes > 0;
 };
 
 const deleteUser = (id) => {
+    // Clean up any assignments involving this user, either side
+    db.prepare(`DELETE FROM moderator_assignments WHERE moderator_id = ? OR user_id = ?`).run(id, id);
     const info = db.prepare(`DELETE FROM users WHERE id = ?`).run(id);
     return info.changes > 0;
 };
@@ -228,6 +279,55 @@ const updateLastLogin = (id) =>
 const getUserCount = () =>
     db.prepare(`SELECT COUNT(*) as count FROM users`).get().count;
 
+// ─── MODERATOR ASSIGNMENT FUNCTIONS ───────────────────────────────────────────
+
+// Assign a normal user to a moderator. Safe to call if already assigned.
+const assignUserToModerator = (moderatorId, userId, assignedBy = null) => {
+    try {
+        db.prepare(`
+            INSERT INTO moderator_assignments (moderator_id, user_id, assigned_by)
+            VALUES (?, ?, ?)
+        `).run(moderatorId, userId, assignedBy);
+    } catch (e) {
+        // UNIQUE constraint — already assigned, treat as success
+    }
+    return true;
+};
+
+const unassignUserFromModerator = (moderatorId, userId) => {
+    const info = db.prepare(`
+        DELETE FROM moderator_assignments WHERE moderator_id = ? AND user_id = ?
+    `).run(moderatorId, userId);
+    return info.changes > 0;
+};
+
+// List of user IDs a given moderator is allowed to view
+const getAssignedUserIds = (moderatorId) => {
+    const rows = db.prepare(`
+        SELECT user_id FROM moderator_assignments WHERE moderator_id = ?
+    `).all(moderatorId);
+    return rows.map(r => r.user_id);
+};
+
+// All assignments with readable names — used to render the admin assignment UI
+const getAllAssignments = () => {
+    return db.prepare(`
+        SELECT
+            ma.id,
+            ma.moderator_id,
+            ma.user_id,
+            ma.assigned_at,
+            mu.username AS moderator_username,
+            mu.email    AS moderator_email,
+            uu.username AS user_username,
+            uu.email    AS user_email
+        FROM moderator_assignments ma
+        JOIN users mu ON ma.moderator_id = mu.id
+        JOIN users uu ON ma.user_id = uu.id
+        ORDER BY ma.assigned_at DESC
+    `).all();
+};
+
 const closeDatabase = () => {
     db.close();
     console.log('👋 Database connection closed');
@@ -237,7 +337,9 @@ module.exports = {
     // Audit
     saveAudit,
     getAuditHistory,
+    getAuditCountForUrl,
     getAllAudits,
+    getAuditsForUserIds,
     getWebsiteStats,
     getAllWebsites,
     deleteAudit,
@@ -251,6 +353,11 @@ module.exports = {
     deleteUser,
     updateLastLogin,
     getUserCount,
+    // Moderator assignments
+    assignUserToModerator,
+    unassignUserFromModerator,
+    getAssignedUserIds,
+    getAllAssignments,
     // Misc
     closeDatabase,
     db

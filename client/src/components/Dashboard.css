@@ -259,6 +259,23 @@ html, body, #root {
     background: rgba(255, 255, 255, 0.35);
 }
 
+.panel-section__action {
+    background: rgba(255, 255, 255, 0.95);
+    border: none;
+    color: #6c5ce7;
+    padding: 6px 14px;
+    border-radius: 20px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    white-space: nowrap;
+    transition: background 0.2s;
+}
+
+.panel-section__action:hover {
+    background: white;
+}
+
 /* ── Responsive ────────────────────────────────────── */
 @media (max-width: 768px) {
     .app-layout {

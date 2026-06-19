@@ -51,7 +51,8 @@ const Icons = {
 const ComparisonView = ({ currentAuditId, currentUrl }) => {
     const [comparisonType, setComparisonType] = useState('url');
     const [compareUrl, setCompareUrl] = useState('');
-    const [compareAuditId, setCompareAuditId] = useState('');
+    const [auditIdA, setAuditIdA] = useState(currentAuditId ? String(currentAuditId) : '');
+    const [auditIdB, setAuditIdB] = useState('');
     const [comparisonData, setComparisonData] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -71,12 +72,12 @@ const ComparisonView = ({ currentAuditId, currentUrl }) => {
                 }
                 requestBody = { urls: [currentUrl, compareUrl] };
             } else {
-                if (!compareAuditId) {
-                    setError('Please enter an Audit ID to compare');
+                if (!auditIdA || !auditIdB) {
+                    setError('Please enter both Audit IDs to compare');
                     setLoading(false);
                     return;
                 }
-                requestBody = { auditIds: [parseInt(currentAuditId), parseInt(compareAuditId)] };
+                requestBody = { auditIds: [parseInt(auditIdA, 10), parseInt(auditIdB, 10)] };
             }
 
             const response = await API.post('/api/compare', requestBody);
@@ -172,15 +173,32 @@ const ComparisonView = ({ currentAuditId, currentUrl }) => {
                         onBlur={e   => e.target.style.borderColor = '#ddd'}
                     />
                 ) : (
-                    <input
-                        type="number"
-                        placeholder="Enter Audit ID (e.g., 5)"
-                        value={compareAuditId}
-                        onChange={(e) => setCompareAuditId(e.target.value)}
-                        style={{ padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: '7px', fontSize: '14px', outline: 'none' }}
-                        onFocus={e  => e.target.style.borderColor = '#6c5ce7'}
-                        onBlur={e   => e.target.style.borderColor = '#ddd'}
-                    />
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 160px' }}>
+                            <label style={{ fontSize: '12px', color: '#888', fontWeight: '600' }}>First Audit ID</label>
+                            <input
+                                type="number"
+                                placeholder="e.g., 73"
+                                value={auditIdA}
+                                onChange={(e) => setAuditIdA(e.target.value)}
+                                style={{ padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: '7px', fontSize: '14px', outline: 'none' }}
+                                onFocus={e  => e.target.style.borderColor = '#6c5ce7'}
+                                onBlur={e   => e.target.style.borderColor = '#ddd'}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 160px' }}>
+                            <label style={{ fontSize: '12px', color: '#888', fontWeight: '600' }}>Second Audit ID</label>
+                            <input
+                                type="number"
+                                placeholder="e.g., 72"
+                                value={auditIdB}
+                                onChange={(e) => setAuditIdB(e.target.value)}
+                                style={{ padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: '7px', fontSize: '14px', outline: 'none' }}
+                                onFocus={e  => e.target.style.borderColor = '#6c5ce7'}
+                                onBlur={e   => e.target.style.borderColor = '#ddd'}
+                            />
+                        </div>
+                    </div>
                 )}
 
                 {/* Compare button */}

@@ -33,11 +33,17 @@ class AuditQueue {
                 item.reject(error);
             }
             
-            // Add delay between audits to prevent resource exhaustion
             await new Promise(resolve => setTimeout(resolve, 2000));
         }
 
         this.isProcessing = false;
+    }
+
+    getStatus() {
+        return {
+            isProcessing: this.isProcessing,
+            queueLength: this.queue.length
+        };
     }
 }
 

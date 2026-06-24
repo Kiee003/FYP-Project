@@ -267,6 +267,8 @@ const updateUserRole = (id, role) => {
 };
 
 const deleteUser = (id) => {
+    // Delete all audits belonging to this user
+    db.prepare(`DELETE FROM audits WHERE user_id = ?`).run(id);
     // Clean up any assignments involving this user, either side
     db.prepare(`DELETE FROM moderator_assignments WHERE moderator_id = ? OR user_id = ?`).run(id, id);
     const info = db.prepare(`DELETE FROM users WHERE id = ?`).run(id);

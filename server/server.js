@@ -53,7 +53,15 @@ app.use('/api/auth', authRoutes);
 //   const userId = req.user.role === 'normal' ? req.user.id : null;
 //   database.getAuditHistory(url, 10, userId);
 
-app.use('/api', auditRoutes);
+// ─── AUDIT ROUTES (protected, Windows) ─────────────────────────────────────────────────
+app.use('/api', auditRoutes); 
+
+// ─── SERVE REACT FRONTEND (Linux) ──────────────────────────────────────────────────────
+/* app.use(express.static(path.join(__dirname, '../client/build')));
+
+app.get('/{*splat}', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/build', 'index.html'));
+}); */
 
 // ─── GRACEFUL SHUTDOWN ────────────────────────────────────────────────────────
 

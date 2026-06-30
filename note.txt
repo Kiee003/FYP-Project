@@ -168,8 +168,10 @@ npm start
 
 In the next conversation, I want to discuss:
 
-1. Do the testing for Dashboard and AI.
-
+1. Remove the audit metric and AI analysis section from User Audit Data and Manage Accounts page section.
+2. Add copy link feature on Audit History and My Audited Website URL line so users just click on the link, copy it and just paste it for the use of Compare Performance section.
+3. Instead of make Audit History and Compare Performance separate page, We combine this two into one page in Compare Performance section. For the button for Audit History, we make it like how My Audited Website button so in the Compare Performance section, there will be 2 button.
+4. For the Audit History and My Audited Website section, create a return button where it goes back to Compare Performance section.
 ---
 
 **Current Status:** All 7 phases complete. Dashboard is functional with real AI analysis.

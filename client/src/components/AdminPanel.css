@@ -1,11 +1,75 @@
-.admin-panel {
+/* ── Overlay ──────────────────────────────────────────── */
+.admin-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 200;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    backdrop-filter: blur(4px);
+}
+
+/* ── Modal ────────────────────────────────────────────── */
+.admin-modal {
     background: white;
+    border-radius: 20px;
+    width: 100%;
+    max-width: 1000px;
+    max-height: 85vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    border-radius: 0 0 14px 14px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
+    animation: adminModalIn 0.2s ease;
 }
 
+@keyframes adminModalIn {
+    from { opacity: 0; transform: scale(0.96); }
+    to   { opacity: 1; transform: scale(1); }
+}
+
+/* ── Header ───────────────────────────────────────────── */
+.admin-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px 24px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    flex-shrink: 0;
+}
+
+.admin-header h2 {
+    font-size: 1.2rem;
+    font-weight: 700;
+    margin-bottom: 2px;
+}
+
+.admin-header p {
+    font-size: 0.85rem;
+    opacity: 0.85;
+}
+
+.admin-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s;
+    flex-shrink: 0;
+}
+
+.admin-close:hover { background: rgba(255, 255, 255, 0.35); }
+
+/* ── Action message ───────────────────────────────────── */
 .action-message {
     padding: 10px 24px;
     font-size: 0.88rem;
@@ -16,6 +80,7 @@
 .action-message.success { background: #d4edda; color: #155724; }
 .action-message.error   { background: #f8d7da; color: #721c24; }
 
+/* ── Subheader ────────────────────────────────────────── */
 .admin-subheader {
     display: flex;
     align-items: center;
@@ -23,6 +88,7 @@
     padding: 12px 20px;
     background: #fafafa;
     border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
 }
 
 .admin-user-count { font-size: 0.82rem; color: #888; }
@@ -44,7 +110,11 @@
 
 .admin-refresh:hover { background: #dde1ff; }
 
-.admin-body { overflow-y: auto; flex: 1; }
+/* ── Body ─────────────────────────────────────────────── */
+.admin-body {
+    overflow-y: auto;
+    flex: 1;
+}
 
 .admin-loading {
     padding: 40px;
@@ -53,7 +123,7 @@
     font-size: 0.9rem;
 }
 
-/* Table */
+/* ── Table ────────────────────────────────────────────── */
 .users-table {
     width: 100%;
     border-collapse: collapse;
@@ -154,7 +224,7 @@
 .text-center { text-align: center; color: #555; font-weight: 600; }
 .text-muted  { color: #888; font-size: 0.82rem; white-space: nowrap; }
 
-/* Assignment toggle button (in table cell) */
+/* Assignment toggle */
 .assign-toggle {
     display: inline-flex;
     align-items: center;
@@ -173,12 +243,9 @@
 
 .assign-toggle:hover { background: #dde1ff; }
 
-.assign-dash {
-    color: #ccc;
-    font-size: 0.85rem;
-}
+.assign-dash { color: #ccc; font-size: 0.85rem; }
 
-/* Expanded assignment checklist row */
+/* Expanded assignment checklist */
 .assign-detail-row td { padding: 0; }
 
 .assign-detail {
@@ -187,12 +254,7 @@
     padding: 16px 24px;
 }
 
-.assign-detail__title {
-    font-size: 0.85rem;
-    color: #555;
-    margin-bottom: 12px;
-}
-
+.assign-detail__title { font-size: 0.85rem; color: #555; margin-bottom: 12px; }
 .assign-detail__title strong { color: #667eea; }
 
 .assign-empty {
@@ -222,11 +284,7 @@
 
 .assign-item:hover { border-color: #c7d2fe; }
 
-.assign-item--checked {
-    border-color: #667eea;
-    background: #f5f3ff;
-}
-
+.assign-item--checked { border-color: #667eea; background: #f5f3ff; }
 .assign-item--busy { opacity: 0.6; pointer-events: none; }
 
 .assign-item input[type="checkbox"] {
@@ -312,11 +370,12 @@
     font-size: 0.78rem;
 }
 
-/* Footer legend */
+/* ── Footer legend ────────────────────────────────────── */
 .admin-footer {
     padding: 12px 20px;
     background: #f8f9fa;
     border-top: 1px solid #e9ecef;
+    flex-shrink: 0;
 }
 
 .role-legend {
@@ -328,8 +387,13 @@
     flex-wrap: wrap;
 }
 
-/* Mobile */
+/* ── Mobile ───────────────────────────────────────────── */
 @media (max-width: 700px) {
+    .admin-modal {
+        max-height: 95vh;
+        border-radius: 14px;
+    }
+
     .users-table th:nth-child(5),
     .users-table td:nth-child(5),
     .users-table th:nth-child(6),

@@ -13,14 +13,6 @@ const ROLE_LEVEL = { normal: 1, moderator: 2, admin: 3 };
 // ── SVG icon library ──────────────────────────────────────────────────────────
 const Icon = ({ name, size = 18 }) => {
     const icons = {
-        // Nav items
-        history: (
-            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="1 4 1 10 7 10"/>
-                <path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
-                <polyline points="12 7 12 12 15 15"/>
-            </svg>
-        ),
         compare: (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"/>
@@ -58,7 +50,6 @@ const Icon = ({ name, size = 18 }) => {
                 <line x1="21" y1="12" x2="9" y2="12"/>
             </svg>
         ),
-        // Role icons
         admin: (
             <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
@@ -75,7 +66,6 @@ const Icon = ({ name, size = 18 }) => {
                 <circle cx="12" cy="7" r="4"/>
             </svg>
         ),
-        // Collapse arrows
         collapse: (
             <svg width={14} height={14} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="15 18 9 12 15 6"/>
@@ -87,16 +77,15 @@ const Icon = ({ name, size = 18 }) => {
             </svg>
         ),
     };
-
     return icons[name] || null;
 };
 
+// Audit History removed — it now lives inside the Compare Performance panel
 const NAV_ITEMS = [
-    { id: 'history',  icon: 'history',  label: 'Audit History',       minRole: 'normal' },
-    { id: 'compare',  icon: 'compare',  label: 'Compare Performance',  minRole: 'normal' },
-    { id: 'crawler',  icon: 'crawler',  label: 'URL Crawler',          minRole: 'normal' },
-    { id: 'userdata', icon: 'userdata', label: 'User Audit Data',      minRole: 'moderator' },
-    { id: 'accounts', icon: 'accounts', label: 'Manage Accounts',      minRole: 'admin' },
+    { id: 'compare',  icon: 'compare',  label: 'Compare Performance', minRole: 'normal' },
+    { id: 'crawler',  icon: 'crawler',  label: 'URL Crawler',         minRole: 'normal' },
+    { id: 'userdata', icon: 'userdata', label: 'User Audit Data',     minRole: 'moderator' },
+    { id: 'accounts', icon: 'accounts', label: 'Manage Accounts',     minRole: 'admin' },
 ];
 
 const Sidebar = ({ activePanel, setActivePanel }) => {
@@ -116,7 +105,6 @@ const Sidebar = ({ activePanel, setActivePanel }) => {
     return (
         <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
 
-            {/* Collapse toggle — integrated into sidebar edge */}
             <button
                 className="sidebar__collapse-btn"
                 onClick={() => setCollapsed(p => !p)}
@@ -166,11 +154,7 @@ const Sidebar = ({ activePanel, setActivePanel }) => {
             {/* Footer */}
             <div className="sidebar__footer">
                 <div className="sidebar__divider" />
-                <button
-                    className="sidebar__logout"
-                    onClick={logout}
-                    title="Sign out"
-                >
+                <button className="sidebar__logout" onClick={logout} title="Sign out">
                     <span className="nav-icon">
                         <Icon name="logout" size={17} />
                     </span>

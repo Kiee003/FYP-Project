@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 const API = axios.create({
-    baseURL: 'http://localhost:5000',
+    baseURL: 'http://localhost:5000', // --> For Windows users, use this if you are running the backend locally on Windows
+    // baseURL: 'http://192.168.0.31:5000', //--> For Linux users, use this if you are running the backend locally on Linux
     timeout: 120000
 });
 

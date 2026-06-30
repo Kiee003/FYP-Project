@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { getAuditHistory, getTrendData } from '../services/api';
 import PerformanceChart from './PerformanceChart';
 import ExportButton from './ExportButton';
-// import ComparisonView from './ComparisonView';
 
 // SVG icon for the section header
 const HistoryIcon = () => (
@@ -13,11 +12,18 @@ const HistoryIcon = () => (
     </svg>
 );
 
-// SVG icon for the URL subtitle
-const LinkIcon = () => (
+// Copy icon
+const CopyIcon = () => (
     <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-        <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+    </svg>
+);
+
+// Check icon — shown after copy
+const CheckIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
     </svg>
 );
 
@@ -28,6 +34,7 @@ const AuditHistory = ({ url }) => {
     const [error, setError] = useState(null);
     const [trendData, setTrendData] = useState(null);
     const [showChart, setShowChart] = useState(false);
+    const [copied, setCopied] = useState(false);
 
     const loadHistory = useCallback(async () => {
         if (!url) return;
@@ -61,6 +68,16 @@ const AuditHistory = ({ url }) => {
         }
     };
 
+    const handleCopyUrl = async () => {
+        try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Copy failed:', err);
+        }
+    };
+
     const formatDate = (dateString) => new Date(dateString).toLocaleString();
 
     const getScoreStyle = (score) => {
@@ -81,8 +98,6 @@ const AuditHistory = ({ url }) => {
         return <div style={{ textAlign: 'center', padding: '20px', color: '#666' }}>No previous audits for this URL</div>;
     }
 
-    // const latestAuditId = history[0]?.id;
-
     return (
         <div style={{ marginTop: '30px', padding: '20px', background: '#f8f9fa', borderRadius: '10px' }}>
 
@@ -92,25 +107,28 @@ const AuditHistory = ({ url }) => {
                     <HistoryIcon />
                     Audit History:
                     {url && (
-                        <a
-                            href={url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title={url}
+                        <button
+                            onClick={handleCopyUrl}
+                            title="Click to copy URL"
                             style={{
                                 display: 'inline-flex',
                                 alignItems: 'center',
                                 gap: '5px',
                                 fontSize: '13px',
                                 fontWeight: '500',
-                                color: '#6c5ce7',
-                                textDecoration: 'none',
+                                color: copied ? '#28a745' : '#6c5ce7',
+                                background: copied ? '#d4edda' : '#f0eeff',
+                                border: `1px solid ${copied ? '#28a745' : '#c4b5fd'}`,
+                                borderRadius: '6px',
+                                padding: '3px 8px',
+                                cursor: 'pointer',
                                 wordBreak: 'break-all',
+                                transition: 'all 0.2s',
                             }}
                         >
-                            <LinkIcon />
-                            {url}
-                        </a>
+                            {copied ? <CheckIcon /> : <CopyIcon />}
+                            {copied ? 'Copied!' : url}
+                        </button>
                     )}
                 </h3>
                 <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -146,7 +164,6 @@ const AuditHistory = ({ url }) => {
                     >
                         {showChart ? 'Hide Chart' : 'Show Trend Chart'}
                     </button>
-                    {/* Top export buttons — exports ALL audits for this URL */}
                     <ExportButton url={url} type="url" />
                 </div>
             </div>
@@ -175,7 +192,6 @@ const AuditHistory = ({ url }) => {
                     <tbody>
                         {history.map((audit) => (
                             <tr key={audit.id} style={{ borderBottom: '1px solid #eee' }}>
-                                {/* Real database audit ID — used in Compare Performance */}
                                 <td style={{ padding: '12px 10px', textAlign: 'center', color: '#aaa', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }} title="Audit ID — use this to compare by Audit ID">
                                     #{audit.id}
                                 </td>
@@ -192,7 +208,6 @@ const AuditHistory = ({ url }) => {
                                 <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.tbt  / 1000).toFixed(2)}s</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>{audit.requests}</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    {/* Row export buttons — exports this single audit */}
                                     <ExportButton auditId={audit.id} type="single" />
                                 </td>
                             </tr>
@@ -200,8 +215,6 @@ const AuditHistory = ({ url }) => {
                     </tbody>
                 </table>
             </div>
-
-            {/*<ComparisonView currentAuditId={latestAuditId} currentUrl={url} />*/}
         </div>
     );
 };

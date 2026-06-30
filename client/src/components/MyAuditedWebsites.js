@@ -20,6 +20,21 @@ const Icons = {
     ),
 };
 
+// Copy icon
+const CopyIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+    </svg>
+);
+
+// Check icon — shown after copy
+const CheckIcon = () => (
+    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+        <polyline points="20 6 9 17 4 12"/>
+    </svg>
+);
+
 // Personal audit log — every website THIS account has audited, no other
 // users' data, no delete action. Reached via the button in Audit History.
 const MyAuditedWebsites = () => {
@@ -28,6 +43,7 @@ const MyAuditedWebsites = () => {
     const [error, setError] = useState('');
     const [expandedAudit, setExpandedAudit] = useState(null);
     const [search, setSearch] = useState('');
+    const [copied, setCopied] = useState(false);
 
     const fetchAudits = async () => {
         setLoading(true);
@@ -48,6 +64,16 @@ const MyAuditedWebsites = () => {
         if (score >= 90) return { color: '#16a34a', fontWeight: 700 };
         if (score >= 50) return { color: '#d97706', fontWeight: 700 };
         return { color: '#dc2626', fontWeight: 700 };
+    };
+
+    const handleCopyUrl = async (url) => {
+        try {
+            await navigator.clipboard.writeText(url);
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error('Copy failed:', err);
+        }
     };
 
     const formatDate = (dt) => new Date(dt).toLocaleString('en-MY', {
@@ -138,10 +164,30 @@ const MyAuditedWebsites = () => {
                                             <td colSpan={5}>
                                                 <div className="uam__detail">
                                                     <div className="uam__detail-url">
-                                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#667eea' }}>
-                                                            {Icons.link}
-                                                        </span>
-                                                        {audit.url}
+                                                        {audit.url && (
+                                                            <button
+                                                                onClick={() => handleCopyUrl(audit.url)}
+                                                                title="Click to copy URL"
+                                                                style={{
+                                                                    display: 'inline-flex',
+                                                                    alignItems: 'center',
+                                                                    gap: '5px',
+                                                                    fontSize: '13px',
+                                                                    fontWeight: '500',
+                                                                    color: copied ? '#28a745' : '#6c5ce7',
+                                                                    background: copied ? '#d4edda' : '#f0eeff',
+                                                                    border: `1px solid ${copied ? '#28a745' : '#c4b5fd'}`,
+                                                                    borderRadius: '6px',
+                                                                    padding: '3px 8px',
+                                                                    cursor: 'pointer',
+                                                                    wordBreak: 'break-all',
+                                                                    transition: 'all 0.2s',
+                                                                }}
+                                                            >
+                                                                {copied ? <CheckIcon /> : <CopyIcon />}
+                                                                {copied ? 'Copied!' : audit.url}
+                                                            </button>
+                                                        )}
                                                     </div>
                                                     <div className="uam__metrics">
                                                         {[

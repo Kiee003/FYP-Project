@@ -1,0 +1,10 @@
+# Keep the Docker build context small and avoid leaking local artifacts
+**/node_modules
+client/build
+**/.env
+**/*.log
+.git
+.gitignore
+docs
+temp
+note.txt

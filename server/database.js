@@ -180,7 +180,19 @@ const getAuditCountForUrl = (url, userId = null) => {
 };
 
 // Get ALL audits — admin only, unrestricted
-const getAllAudits = (limit = 50) => {
+// excludeUserId — used by User Audit Data so an admin sees everyone else's
+// audits (other admins included) but not their own. Their personal audits
+// still live in Audited Website.
+const getAllAudits = (limit = 50, excludeUserId = null) => {
+    if (excludeUserId) {
+        return db.prepare(`
+            SELECT a.*, u.username, u.email FROM audits a
+            LEFT JOIN users u ON a.user_id = u.id
+            WHERE a.user_id IS NULL OR a.user_id != ?
+            ORDER BY a.created_at DESC LIMIT ?
+        `).all(excludeUserId, limit);
+    }
+
     return db.prepare(`
         SELECT a.*, u.username, u.email FROM audits a
         LEFT JOIN users u ON a.user_id = u.id

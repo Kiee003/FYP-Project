@@ -170,6 +170,7 @@ const UserAuditManager = () => {
                     onChange={e => setSearch(e.target.value)}
                 />
                 <span className="uam__count">{filtered.length} of {audits.length}</span>
+                <ExportButton type="list" audits={filtered} label="Export results" />
                 <button className="uam__refresh" onClick={fetchAudits} title="Refresh data">
                     <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
                         {Icons.refresh} Refresh
@@ -299,7 +300,6 @@ const UserAuditManager = () => {
                                                         {[
                                                             { label: 'LCP',  val: `${(audit.lcp  / 1000).toFixed(2)}s` },
                                                             { label: 'FCP',  val: `${(audit.fcp  / 1000).toFixed(2)}s` },
-                                                            { label: 'TTFB', val: `${(audit.ttfb / 1000).toFixed(2)}s` },
                                                             { label: 'CLS',  val: audit.cls?.toFixed(3) },
                                                             { label: 'TBT',  val: `${(audit.tbt  / 1000).toFixed(2)}s` },
                                                             { label: 'Reqs', val: audit.requests },

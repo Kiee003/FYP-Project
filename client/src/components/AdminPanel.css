@@ -1,73 +1,13 @@
-/* ── Overlay ──────────────────────────────────────────── */
-.admin-overlay {
-    position: fixed;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 200;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 20px;
-    backdrop-filter: blur(4px);
-}
+/* AdminPanel renders inline as a page inside Dashboard's panel-section.
+   The overlay/modal styles are gone — the sidebar handles navigation. */
 
-/* ── Modal ────────────────────────────────────────────── */
-.admin-modal {
+.admin-panel {
     background: white;
-    border-radius: 20px;
-    width: 100%;
-    max-width: 1000px;
-    max-height: 85vh;
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.3);
-    animation: adminModalIn 0.2s ease;
+    border-radius: 0 0 16px 16px;
 }
-
-@keyframes adminModalIn {
-    from { opacity: 0; transform: scale(0.96); }
-    to   { opacity: 1; transform: scale(1); }
-}
-
-/* ── Header ───────────────────────────────────────────── */
-.admin-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 20px 24px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    flex-shrink: 0;
-}
-
-.admin-header h2 {
-    font-size: 1.2rem;
-    font-weight: 700;
-    margin-bottom: 2px;
-}
-
-.admin-header p {
-    font-size: 0.85rem;
-    opacity: 0.85;
-}
-
-.admin-close {
-    background: rgba(255, 255, 255, 0.2);
-    border: none;
-    color: white;
-    width: 34px;
-    height: 34px;
-    border-radius: 50%;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s;
-    flex-shrink: 0;
-}
-
-.admin-close:hover { background: rgba(255, 255, 255, 0.35); }
 
 /* ── Action message ───────────────────────────────────── */
 .action-message {
@@ -112,7 +52,7 @@
 
 /* ── Body ─────────────────────────────────────────────── */
 .admin-body {
-    overflow-y: auto;
+    overflow-x: auto;
     flex: 1;
 }
 
@@ -389,11 +329,6 @@
 
 /* ── Mobile ───────────────────────────────────────────── */
 @media (max-width: 700px) {
-    .admin-modal {
-        max-height: 95vh;
-        border-radius: 14px;
-    }
-
     .users-table th:nth-child(5),
     .users-table td:nth-child(5),
     .users-table th:nth-child(6),

@@ -13,6 +13,22 @@ const ROLE_LEVEL = { normal: 1, moderator: 2, admin: 3 };
 // ── SVG icon library ──────────────────────────────────────────────────────────
 const Icon = ({ name, size = 18 }) => {
     const icons = {
+        // Speedometer / gauge — the Run Audit page
+        audit: (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3.34 19a10 10 0 1 1 17.32 0"/>
+                <line x1="12" y1="14" x2="16.5" y2="9.5"/>
+                <circle cx="12" cy="14" r="1.4"/>
+            </svg>
+        ),
+        // Globe — the Audited Website page
+        globe: (
+            <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="10"/>
+                <line x1="2" y1="12" x2="22" y2="12"/>
+                <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+            </svg>
+        ),
         compare: (
             <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="18" y1="20" x2="18" y2="10"/>
@@ -80,15 +96,18 @@ const Icon = ({ name, size = 18 }) => {
     return icons[name] || null;
 };
 
-// Audit History removed — it now lives inside the Compare Performance panel
+// Audited Website sits directly above Compare Performance — you look up a URL
+// there, copy it, then paste it into Compare.
 const NAV_ITEMS = [
-    { id: 'compare',  icon: 'compare',  label: 'Compare Performance', minRole: 'normal' },
-    { id: 'crawler',  icon: 'crawler',  label: 'URL Crawler',         minRole: 'normal' },
-    { id: 'userdata', icon: 'userdata', label: 'User Audit Data',     minRole: 'moderator' },
-    { id: 'accounts', icon: 'accounts', label: 'Manage Accounts',     minRole: 'admin' },
+    { id: 'audit',      icon: 'audit',    label: 'Run Audit',           minRole: 'normal' },
+    { id: 'mywebsites', icon: 'globe',    label: 'Audited Website',     minRole: 'normal' },
+    { id: 'compare',    icon: 'compare',  label: 'Compare Performance', minRole: 'normal' },
+    { id: 'crawler',    icon: 'crawler',  label: 'URL Crawler',         minRole: 'normal' },
+    { id: 'userdata',   icon: 'userdata', label: 'User Audit Data',     minRole: 'moderator' },
+    { id: 'accounts',   icon: 'accounts', label: 'Manage Accounts',     minRole: 'admin' },
 ];
 
-const Sidebar = ({ activePanel, setActivePanel }) => {
+const Sidebar = ({ activePage, onNavigate }) => {
     const { user, logout } = useAuth();
     const [collapsed, setCollapsed] = useState(false);
 
@@ -97,10 +116,6 @@ const Sidebar = ({ activePanel, setActivePanel }) => {
     const role = ROLE_CONFIG[user.role] || ROLE_CONFIG.normal;
     const userLevel = ROLE_LEVEL[user.role] || 1;
     const visibleNav = NAV_ITEMS.filter(item => userLevel >= ROLE_LEVEL[item.minRole]);
-
-    const handleNav = (id) => {
-        setActivePanel(prev => prev === id ? null : id);
-    };
 
     return (
         <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
@@ -132,21 +147,21 @@ const Sidebar = ({ activePanel, setActivePanel }) => {
 
             <div className="sidebar__divider" />
 
-            {/* Nav */}
+            {/* Nav — clicking navigates to that page */}
             <nav className="sidebar__nav">
                 {!collapsed && <span className="sidebar__section-label">Tools</span>}
                 {visibleNav.map(item => (
                     <button
                         key={item.id}
-                        className={`sidebar__nav-item ${activePanel === item.id ? 'active' : ''}`}
-                        onClick={() => handleNav(item.id)}
+                        className={`sidebar__nav-item ${activePage === item.id ? 'active' : ''}`}
+                        onClick={() => onNavigate(item.id)}
                         title={collapsed ? item.label : ''}
                     >
                         <span className="nav-icon">
                             <Icon name={item.icon} size={17} />
                         </span>
                         {!collapsed && <span className="nav-label">{item.label}</span>}
-                        {!collapsed && activePanel === item.id && <span className="nav-active-dot" />}
+                        {!collapsed && activePage === item.id && <span className="nav-active-dot" />}
                     </button>
                 ))}
             </nav>

@@ -1,9 +1,17 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { getAuditHistory, getTrendData } from '../services/api';
 import PerformanceChart from './PerformanceChart';
-import ExportButton from './ExportButton';
 
-// SVG icon for the section header
+// Bar chart icon — Performance Chart section
+const ChartIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <line x1="18" y1="20" x2="18" y2="10"/>
+        <line x1="12" y1="20" x2="12" y2="4"/>
+        <line x1="6"  y1="20" x2="6"  y2="14"/>
+    </svg>
+);
+
+// Clock icon — History section
 const HistoryIcon = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="1 4 1 10 7 10"/>
@@ -12,20 +20,14 @@ const HistoryIcon = () => (
     </svg>
 );
 
-// Copy icon
-const CopyIcon = () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
-        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
-    </svg>
-);
-
-// Check icon — shown after copy
-const CheckIcon = () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-        <polyline points="20 6 9 17 4 12"/>
-    </svg>
-);
+const sectionTitleStyle = {
+    margin: 0,
+    display: 'flex',
+    alignItems: 'center',
+    gap: '8px',
+    color: '#333',
+    fontSize: '1.05rem',
+};
 
 const AuditHistory = ({ url }) => {
     const [history, setHistory] = useState([]);
@@ -33,18 +35,27 @@ const AuditHistory = ({ url }) => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [trendData, setTrendData] = useState(null);
-    const [showChart, setShowChart] = useState(false);
-    const [copied, setCopied] = useState(false);
 
+    // Fetch history and trend data together so the chart is ready on first render
     const loadHistory = useCallback(async () => {
         if (!url) return;
         setLoading(true);
         setError(null);
         try {
-            const response = await getAuditHistory(url, 10);
-            if (response.success) {
-                setHistory(response.data);
-                setTotalCount(response.totalCount ?? response.data.length);
+            const [historyRes, trendRes] = await Promise.all([
+                getAuditHistory(url, 10),
+                getTrendData(url, 10).catch(err => {
+                    console.error('Failed to load trend data:', err);
+                    return { success: false };
+                }),
+            ]);
+
+            if (historyRes.success) {
+                setHistory(historyRes.data);
+                setTotalCount(historyRes.totalCount ?? historyRes.data.length);
+            }
+            if (trendRes.success) {
+                setTrendData(trendRes.data);
             }
         } catch (err) {
             setError('Failed to load audit history');
@@ -57,26 +68,6 @@ const AuditHistory = ({ url }) => {
     useEffect(() => {
         loadHistory();
     }, [loadHistory]);
-
-    const loadTrendData = async () => {
-        if (!url) return;
-        try {
-            const response = await getTrendData(url, 10);
-            if (response.success) setTrendData(response.data);
-        } catch (err) {
-            console.error('Failed to load trend data:', err);
-        }
-    };
-
-    const handleCopyUrl = async () => {
-        try {
-            await navigator.clipboard.writeText(url);
-            setCopied(true);
-            setTimeout(() => setCopied(false), 2000);
-        } catch (err) {
-            console.error('Copy failed:', err);
-        }
-    };
 
     const formatDate = (dateString) => new Date(dateString).toLocaleString();
 
@@ -101,78 +92,38 @@ const AuditHistory = ({ url }) => {
     return (
         <div style={{ marginTop: '30px', padding: '20px', background: '#f8f9fa', borderRadius: '10px' }}>
 
-            {/* Header row */}
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-                <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', color: '#333', flexWrap: 'wrap' }}>
-                    <HistoryIcon />
-                    Audit History:
-                    {url && (
-                        <button
-                            onClick={handleCopyUrl}
-                            title="Click to copy URL"
-                            style={{
-                                display: 'inline-flex',
-                                alignItems: 'center',
-                                gap: '5px',
-                                fontSize: '13px',
-                                fontWeight: '500',
-                                color: copied ? '#28a745' : '#6c5ce7',
-                                background: copied ? '#d4edda' : '#f0eeff',
-                                border: `1px solid ${copied ? '#28a745' : '#c4b5fd'}`,
-                                borderRadius: '6px',
-                                padding: '3px 8px',
-                                cursor: 'pointer',
-                                wordBreak: 'break-all',
-                                transition: 'all 0.2s',
-                            }}
-                        >
-                            {copied ? <CheckIcon /> : <CopyIcon />}
-                            {copied ? 'Copied!' : url}
-                        </button>
-                    )}
+            {/* ── Performance Chart ─────────────────────────────────────── */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                <h3 style={sectionTitleStyle}>
+                    <ChartIcon />
+                    Performance Chart
                 </h3>
-                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span style={{
-                        fontSize: '12px',
-                        color: '#555',
-                        background: '#eee',
-                        padding: '5px 12px',
-                        borderRadius: '14px',
-                        fontWeight: '600',
-                        whiteSpace: 'nowrap',
-                    }}>
-                        {totalCount} total audit{totalCount !== 1 ? 's' : ''}
-                        {totalCount > history.length && (
-                            <span style={{ fontWeight: '400', marginLeft: '4px' }}>(showing latest {history.length})</span>
-                        )}
-                    </span>
-                    <button
-                        onClick={() => {
-                            setShowChart(!showChart);
-                            if (!showChart && !trendData) loadTrendData();
-                        }}
-                        style={{
-                            padding: '5px 12px',
-                            background: showChart ? '#dc3545' : '#6c5ce7',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '5px',
-                            cursor: 'pointer',
-                            fontSize: '12px',
-                            fontWeight: '500',
-                        }}
-                    >
-                        {showChart ? 'Hide Chart' : 'Show Trend Chart'}
-                    </button>
-                    <ExportButton url={url} type="url" />
-                </div>
+                <span style={{
+                    fontSize: '12px',
+                    color: '#555',
+                    background: '#eee',
+                    padding: '5px 12px',
+                    borderRadius: '14px',
+                    fontWeight: '600',
+                    whiteSpace: 'nowrap',
+                }}>
+                    {totalCount} total audit{totalCount !== 1 ? 's' : ''}
+                    {totalCount > history.length && (
+                        <span style={{ fontWeight: '400', marginLeft: '4px' }}>(showing latest {history.length})</span>
+                    )}
+                </span>
             </div>
 
-            {showChart && trendData && (
+            {trendData && (
                 <PerformanceChart trendData={trendData} title={`Performance Trend for ${url}`} />
             )}
 
-            {/* History table */}
+            {/* ── History ───────────────────────────────────────────────── */}
+            <h3 style={{ ...sectionTitleStyle, marginTop: '28px', marginBottom: '12px' }}>
+                <HistoryIcon />
+                Audited Website History
+            </h3>
+
             <div style={{ overflowX: 'auto' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse', background: 'white', borderRadius: '8px', overflow: 'hidden' }}>
                     <thead>
@@ -182,11 +133,9 @@ const AuditHistory = ({ url }) => {
                             <th style={{ padding: '12px', textAlign: 'center' }}>Score</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>LCP</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>FCP</th>
-                            <th style={{ padding: '12px', textAlign: 'center' }}>TTFB</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>CLS</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>TBT</th>
                             <th style={{ padding: '12px', textAlign: 'center' }}>Requests</th>
-                            <th style={{ padding: '12px', textAlign: 'center' }}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -201,15 +150,11 @@ const AuditHistory = ({ url }) => {
                                         {audit.performance_score}/100
                                     </span>
                                 </td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.lcp  / 1000).toFixed(2)}s</td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.fcp  / 1000).toFixed(2)}s</td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.ttfb / 1000).toFixed(2)}s</td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.lcp / 1000).toFixed(2)}s</td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.fcp / 1000).toFixed(2)}s</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>{audit.cls?.toFixed(3) || '0.000'}</td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.tbt  / 1000).toFixed(2)}s</td>
+                                <td style={{ padding: '12px', textAlign: 'center' }}>{(audit.tbt / 1000).toFixed(2)}s</td>
                                 <td style={{ padding: '12px', textAlign: 'center' }}>{audit.requests}</td>
-                                <td style={{ padding: '12px', textAlign: 'center' }}>
-                                    <ExportButton auditId={audit.id} type="single" />
-                                </td>
                             </tr>
                         ))}
                     </tbody>

@@ -10,13 +10,20 @@ const Icons = {
             <line x1="12" y1="12" x2="12" y2="12.01"/>
         </svg>
     ),
+    // Verdict card — clipboard with a tick, reads as "assessment"
+    verdict: (
+        <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M9 4H7a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2"/>
+            <rect x="9" y="2" width="6" height="4" rx="1"/>
+            <path d="M9 13.5l2 2 4-4"/>
+        </svg>
+    ),
     // Summary card — chart/analytics icon
     summary: (
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round">
             <line x1="18" y1="20" x2="18" y2="10"/>
             <line x1="12" y1="20" x2="12" y2="4"/>
             <line x1="6"  y1="20" x2="6"  y2="14"/>
-            <rect x="1" y="1" width="22" height="22" rx="3" strokeOpacity="0.15" fill="none"/>
         </svg>
     ),
     // Recommendations card — wrench/fix icon
@@ -81,7 +88,7 @@ const AIInsights = ({ insights, loading, error }) => {
 
     if (loading) {
         return (
-            <div className="ai-insights loading">
+            <div className="ai-insights ai-insights--state">
                 <div className="loading-spinner"></div>
                 <p>AI is analysing your website performance...</p>
             </div>
@@ -90,7 +97,7 @@ const AIInsights = ({ insights, loading, error }) => {
 
     if (error) {
         return (
-            <div className="ai-insights error">
+            <div className="ai-insights ai-insights--state error">
                 <p>Could not load AI insights. Please try again.</p>
             </div>
         );
@@ -121,87 +128,95 @@ const AIInsights = ({ insights, loading, error }) => {
                 </span>
             </div>
 
-            {/* Verdict */}
-            {insights.verdict && (
-                <div className="verdict-banner">
-                    <span className="verdict-text">{insights.verdict}</span>
-                </div>
-            )}
+            {/* Body — every section lives inside one panel */}
+            <div className="ai-body">
 
-            {/* Summary card */}
-            <div className="insight-card summary-card">
-                <div className="card-icon">{Icons.summary}</div>
-                <div className="card-content">
-                    <h3>What This Means For Your Visitors</h3>
-                    {insights.summary.split('\n').filter(p => p.trim()).map((paragraph, i) => (
-                        <p key={i} className="summary-text">{paragraph}</p>
-                    ))}
-                    {insights.note && (
-                        <p className="fallback-note">
-                            <span className="fallback-note__icon">{Icons.alert}</span>
-                            {insights.note}
-                        </p>
-                    )}
-                </div>
-            </div>
-
-            {/* Recommendations card */}
-            {insights.recommendations && insights.recommendations.length > 0 && (
-                <div className="insight-card recommendations-card">
-                    <div className="card-icon">{Icons.fix}</div>
-                    <div className="card-content">
-                        <h3>What To Fix</h3>
-                        <div className="recommendations-list">
-                            {insights.recommendations.map((rec, idx) => {
-                                const config = severityConfig[rec.severity] || severityConfig.info;
-                                return (
-                                    <div key={idx} className={`recommendation-item ${config.className}`}>
-                                        <div className="rec-header">
-                                            <span className="rec-icon">{config.icon}</span>
-                                            <h4>{rec.issue}</h4>
-                                            <span className="severity-badge">{config.label}</span>
-                                        </div>
-
-                                        {rec.plainEnglish && (
-                                            <p className="rec-description">{rec.plainEnglish}</p>
-                                        )}
-
-                                        {rec.simpleSuggestion && (
-                                            <p className="rec-suggestion">
-                                                <strong>Fix:</strong> {rec.simpleSuggestion}
-                                            </p>
-                                        )}
-
-                                        {rec.actionItems && rec.actionItems.length > 0 && (
-                                            <div className="rec-actions">
-                                                <button
-                                                    className="action-toggle"
-                                                    onClick={() => toggleExpand(`rec-${idx}`)}
-                                                >
-                                                    <span className="action-toggle__icon">
-                                                        {expanded[`rec-${idx}`] ? Icons.chevronDown : Icons.chevronRight}
-                                                    </span>
-                                                    {expanded[`rec-${idx}`] ? 'Hide steps' : 'Show step-by-step guide'}
-                                                </button>
-                                                {expanded[`rec-${idx}`] && (
-                                                    <ul className="action-items">
-                                                        {rec.actionItems.map((action, actionIdx) => (
-                                                            <li key={actionIdx}>
-                                                                <span className="checkmark">{Icons.check}</span>
-                                                                {action}
-                                                            </li>
-                                                        ))}
-                                                    </ul>
-                                                )}
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            })}
+                {/* Verdict — now labelled, so it's clear what the phrase is for */}
+                {insights.verdict && (
+                    <div className="insight-card">
+                        <div className="card-icon">{Icons.verdict}</div>
+                        <div className="card-content">
+                            <h3>Verdict</h3>
+                            <p className="verdict-text">{insights.verdict}</p>
                         </div>
                     </div>
+                )}
+
+                {/* Summary */}
+                <div className="insight-card">
+                    <div className="card-icon">{Icons.summary}</div>
+                    <div className="card-content">
+                        <h3>What This Means For Your Visitors</h3>
+                        {insights.summary.split('\n').filter(p => p.trim()).map((paragraph, i) => (
+                            <p key={i} className="summary-text">{paragraph}</p>
+                        ))}
+                        {insights.note && (
+                            <p className="fallback-note">
+                                <span className="fallback-note__icon">{Icons.alert}</span>
+                                {insights.note}
+                            </p>
+                        )}
+                    </div>
                 </div>
-            )}
+
+                {/* Recommendations */}
+                {insights.recommendations && insights.recommendations.length > 0 && (
+                    <div className="insight-card">
+                        <div className="card-icon">{Icons.fix}</div>
+                        <div className="card-content">
+                            <h3>What To Fix</h3>
+                            <div className="recommendations-list">
+                                {insights.recommendations.map((rec, idx) => {
+                                    const config = severityConfig[rec.severity] || severityConfig.info;
+                                    return (
+                                        <div key={idx} className={`recommendation-item ${config.className}`}>
+                                            <div className="rec-header">
+                                                <span className="rec-icon">{config.icon}</span>
+                                                <h4>{rec.issue}</h4>
+                                                <span className="severity-badge">{config.label}</span>
+                                            </div>
+
+                                            {rec.plainEnglish && (
+                                                <p className="rec-description">{rec.plainEnglish}</p>
+                                            )}
+
+                                            {rec.simpleSuggestion && (
+                                                <p className="rec-suggestion">
+                                                    <strong>Fix:</strong> {rec.simpleSuggestion}
+                                                </p>
+                                            )}
+
+                                            {rec.actionItems && rec.actionItems.length > 0 && (
+                                                <div className="rec-actions">
+                                                    <button
+                                                        className="action-toggle"
+                                                        onClick={() => toggleExpand(`rec-${idx}`)}
+                                                    >
+                                                        <span className="action-toggle__icon">
+                                                            {expanded[`rec-${idx}`] ? Icons.chevronDown : Icons.chevronRight}
+                                                        </span>
+                                                        {expanded[`rec-${idx}`] ? 'Hide steps' : 'Show step-by-step guide'}
+                                                    </button>
+                                                    {expanded[`rec-${idx}`] && (
+                                                        <ul className="action-items">
+                                                            {rec.actionItems.map((action, actionIdx) => (
+                                                                <li key={actionIdx}>
+                                                                    <span className="checkmark">{Icons.check}</span>
+                                                                    {action}
+                                                                </li>
+                                                            ))}
+                                                        </ul>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
 
             {/* Timestamp */}
             {insights.generatedAt && (

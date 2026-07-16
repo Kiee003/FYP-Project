@@ -2,7 +2,6 @@ import React from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Dashboard from './components/Dashboard';
 import LoginPage from './components/LoginPage';
-import './App.css';
 
 const AppContent = () => {
     const { user, loading } = useAuth();

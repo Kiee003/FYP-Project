@@ -3,13 +3,6 @@ import API from '../services/api';
 
 // ── SVG icons ─────────────────────────────────────────────────────────────────
 const Icons = {
-    compare: (
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="20" x2="18" y2="10"/>
-            <line x1="12" y1="20" x2="12" y2="4"/>
-            <line x1="6"  y1="20" x2="6"  y2="14"/>
-        </svg>
-    ),
     error: (
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="12" cy="12" r="10"/>
@@ -46,11 +39,36 @@ const Icons = {
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
         </svg>
     ),
+    info: (
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10"/>
+            <line x1="12" y1="16" x2="12" y2="12"/>
+            <line x1="12" y1="8"  x2="12.01" y2="8"/>
+        </svg>
+    ),
 };
 
+// Shared input styling
+const inputStyle = {
+    padding: '10px 14px',
+    border: '1.5px solid #ddd',
+    borderRadius: '7px',
+    fontSize: '14px',
+    outline: 'none',
+    width: '100%',
+    boxSizing: 'border-box',
+};
+
+const labelStyle = { fontSize: '12px', color: '#888', fontWeight: '600' };
+
+// Compare Performance is a standalone page — it does NOT require an audit to
+// have been run first. Both sides are entered by the user. If they happen to
+// have just run an audit, the first field is pre-filled with that URL as a
+// convenience.
 const ComparisonView = ({ currentAuditId, currentUrl }) => {
     const [comparisonType, setComparisonType] = useState('url');
-    const [compareUrl, setCompareUrl] = useState('');
+    const [urlA, setUrlA] = useState(currentUrl || '');
+    const [urlB, setUrlB] = useState('');
     const [auditIdA, setAuditIdA] = useState(currentAuditId ? String(currentAuditId) : '');
     const [auditIdB, setAuditIdB] = useState('');
     const [comparisonData, setComparisonData] = useState(null);
@@ -65,12 +83,12 @@ const ComparisonView = ({ currentAuditId, currentUrl }) => {
             let requestBody = {};
 
             if (comparisonType === 'url') {
-                if (!compareUrl) {
-                    setError('Please enter a URL to compare');
+                if (!urlA.trim() || !urlB.trim()) {
+                    setError('Please enter both URLs to compare');
                     setLoading(false);
                     return;
                 }
-                requestBody = { urls: [currentUrl, compareUrl] };
+                requestBody = { urls: [urlA.trim(), urlB.trim()] };
             } else {
                 if (!auditIdA || !auditIdB) {
                     setError('Please enter both Audit IDs to compare');
@@ -115,32 +133,35 @@ const ComparisonView = ({ currentAuditId, currentUrl }) => {
         }
     };
 
-    if (!currentAuditId && !currentUrl) return null;
-
     const metricLabels = {
         performance_score: 'Performance Score',
         lcp:      'LCP (s)',
         fcp:      'FCP (s)',
-        ttfb:     'TTFB (s)',
         cls:      'CLS',
         tbt:      'TBT (s)',
         requests: 'Requests',
     };
 
     return (
-        <div style={{ marginTop: '30px', padding: '20px', background: '#f8f9fa', borderRadius: '10px' }}>
+        <div style={{ padding: '20px', background: '#f8f9fa', borderRadius: '0 0 16px 16px' }}>
 
-            {/* Header */}
-            <h3 style={{ marginBottom: '15px', display: 'flex', alignItems: 'center', gap: '8px', color: '#333' }}>
-                <span style={{ color: '#6c5ce7' }}>{Icons.compare}</span>
-                Compare Performance
-            </h3>
+            {/* Hint — points users at where to get the URLs / IDs */}
+            <div style={{
+                display: 'flex', alignItems: 'center', gap: '8px',
+                padding: '10px 14px', marginBottom: '16px',
+                background: '#f0f2ff', border: '1px solid #e0e3ff',
+                borderRadius: '7px', fontSize: '13px', color: '#4c4ddc',
+            }}>
+                <span style={{ display: 'flex', flexShrink: 0 }}>{Icons.info}</span>
+                Both sites must have been audited under your account already. Open
+                <strong> My Audited Websites</strong> to copy a URL or grab an Audit ID.
+            </div>
 
             {/* Controls */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '20px' }}>
 
                 {/* Radio buttons */}
-                <div style={{ display: 'flex', gap: '24px' }}>
+                <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap' }}>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#444' }}>
                         <input
                             type="radio"
@@ -148,7 +169,7 @@ const ComparisonView = ({ currentAuditId, currentUrl }) => {
                             checked={comparisonType === 'url'}
                             onChange={() => setComparisonType('url')}
                         />
-                        Compare with another URL
+                        Compare two URLs
                     </label>
                     <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '14px', color: '#444' }}>
                         <input
@@ -157,45 +178,62 @@ const ComparisonView = ({ currentAuditId, currentUrl }) => {
                             checked={comparisonType === 'audit'}
                             onChange={() => setComparisonType('audit')}
                         />
-                        Compare with specific audit ID
+                        Compare two Audit IDs
                     </label>
                 </div>
 
-                {/* Input */}
+                {/* Inputs — two independent fields either way */}
                 {comparisonType === 'url' ? (
-                    <input
-                        type="text"
-                        placeholder="Enter URL to compare (e.g., https://google.com)"
-                        value={compareUrl}
-                        onChange={(e) => setCompareUrl(e.target.value)}
-                        style={{ padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: '7px', fontSize: '14px', outline: 'none' }}
-                        onFocus={e  => e.target.style.borderColor = '#6c5ce7'}
-                        onBlur={e   => e.target.style.borderColor = '#ddd'}
-                    />
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 240px' }}>
+                            <label style={labelStyle}>First URL (Site A)</label>
+                            <input
+                                type="text"
+                                placeholder="https://example.com"
+                                value={urlA}
+                                onChange={(e) => setUrlA(e.target.value)}
+                                style={inputStyle}
+                                onFocus={e => e.target.style.borderColor = '#6c5ce7'}
+                                onBlur={e  => e.target.style.borderColor = '#ddd'}
+                            />
+                        </div>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 240px' }}>
+                            <label style={labelStyle}>Second URL (Site B)</label>
+                            <input
+                                type="text"
+                                placeholder="https://google.com"
+                                value={urlB}
+                                onChange={(e) => setUrlB(e.target.value)}
+                                style={inputStyle}
+                                onFocus={e => e.target.style.borderColor = '#6c5ce7'}
+                                onBlur={e  => e.target.style.borderColor = '#ddd'}
+                            />
+                        </div>
+                    </div>
                 ) : (
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 160px' }}>
-                            <label style={{ fontSize: '12px', color: '#888', fontWeight: '600' }}>First Audit ID</label>
+                            <label style={labelStyle}>First Audit ID</label>
                             <input
                                 type="number"
                                 placeholder="e.g., 73"
                                 value={auditIdA}
                                 onChange={(e) => setAuditIdA(e.target.value)}
-                                style={{ padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: '7px', fontSize: '14px', outline: 'none' }}
-                                onFocus={e  => e.target.style.borderColor = '#6c5ce7'}
-                                onBlur={e   => e.target.style.borderColor = '#ddd'}
+                                style={inputStyle}
+                                onFocus={e => e.target.style.borderColor = '#6c5ce7'}
+                                onBlur={e  => e.target.style.borderColor = '#ddd'}
                             />
                         </div>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: '1 1 160px' }}>
-                            <label style={{ fontSize: '12px', color: '#888', fontWeight: '600' }}>Second Audit ID</label>
+                            <label style={labelStyle}>Second Audit ID</label>
                             <input
                                 type="number"
                                 placeholder="e.g., 72"
                                 value={auditIdB}
                                 onChange={(e) => setAuditIdB(e.target.value)}
-                                style={{ padding: '10px 14px', border: '1.5px solid #ddd', borderRadius: '7px', fontSize: '14px', outline: 'none' }}
-                                onFocus={e  => e.target.style.borderColor = '#6c5ce7'}
-                                onBlur={e   => e.target.style.borderColor = '#ddd'}
+                                style={inputStyle}
+                                onFocus={e => e.target.style.borderColor = '#6c5ce7'}
+                                onBlur={e  => e.target.style.borderColor = '#ddd'}
                             />
                         </div>
                     </div>
@@ -278,7 +316,7 @@ const ComparisonView = ({ currentAuditId, currentUrl }) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {['performance_score', 'lcp', 'fcp', 'ttfb', 'cls', 'tbt', 'requests'].map((metric, rowIdx) => {
+                            {['performance_score', 'lcp', 'fcp', 'cls', 'tbt', 'requests'].map((metric, rowIdx) => {
                                 const item1 = comparisonData.items[0];
                                 const item2 = comparisonData.items[1];
                                 const comparison = getMetricComparison(item1, item2, metric);

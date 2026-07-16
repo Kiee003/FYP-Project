@@ -46,12 +46,6 @@ const Icons = {
             <polyline points="18 15 12 9 6 15"/>
         </svg>
     ),
-    close: (
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-        </svg>
-    ),
 };
 
 const ROLE_CONFIG = {
@@ -60,7 +54,10 @@ const ROLE_CONFIG = {
     normal:    { label: 'User',      color: '#0c5460', bg: '#d1ecf1', icon: Icons.user      },
 };
 
-const AdminPanel = ({ onClose }) => {
+// Renders inline as a page. The page title ("Manage Accounts") is supplied by
+// the panel-section header in Dashboard, so this component has no header of its
+// own and no close button — navigation is handled entirely by the sidebar.
+const AdminPanel = () => {
     const { user, isAdmin } = useAuth();
     const [users, setUsers] = useState([]);
     const [assignments, setAssignments] = useState([]);
@@ -176,211 +173,200 @@ const AdminPanel = ({ onClose }) => {
     const totalCols = isAdmin ? 7 : 6;
 
     return (
-        <div className="admin-overlay" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-            <div className="admin-modal">
+        <div className="admin-panel">
 
-                {/* Header */}
-                <div className="admin-header">
-                    <div>
-                        <h2>User Management</h2>
-                        <p>{users.length} registered account{users.length !== 1 ? 's' : ''}</p>
-                    </div>
-                    <button className="admin-close" onClick={onClose} title="Close">
-                        {Icons.close}
-                    </button>
-                </div>
+            {msgText && <div className={`action-message ${msgType}`}>{msgText}</div>}
+            {error && <div className="action-message error">{error}</div>}
 
-                {msgText && <div className={`action-message ${msgType}`}>{msgText}</div>}
-                {error && <div className="action-message error">{error}</div>}
+            {/* Subheader — account count + refresh */}
+            <div className="admin-subheader">
+                <span className="admin-user-count">
+                    {users.length} registered account{users.length !== 1 ? 's' : ''}
+                </span>
+                <button className="admin-refresh" onClick={refreshAll} title="Refresh">
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
+                        {Icons.refresh} Refresh
+                    </span>
+                </button>
+            </div>
 
-                {/* Subheader */}
-                <div className="admin-subheader">
-                    <span className="admin-user-count">Manage roles, assignments, and accounts</span>
-                    <button className="admin-refresh" onClick={refreshAll} title="Refresh">
-                        <span style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-                            {Icons.refresh} Refresh
-                        </span>
-                    </button>
-                </div>
+            {/* User table */}
+            <div className="admin-body">
+                {loading ? (
+                    <div className="admin-loading">Loading users...</div>
+                ) : (
+                    <table className="users-table">
+                        <thead>
+                            <tr>
+                                <th>User</th>
+                                <th>Role</th>
+                                <th>Assignments</th>
+                                <th>Audits</th>
+                                <th>Joined</th>
+                                <th>Last Login</th>
+                                {isAdmin && <th>Actions</th>}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {users.map(u => {
+                                const roleInfo = ROLE_CONFIG[u.role] || ROLE_CONFIG.normal;
+                                const isSelf = u.id === user.id;
+                                const isModerator = u.role === 'moderator';
+                                const assignedCount = assignmentMap[u.id]?.size || 0;
+                                const isExpanded = expandedModerator === u.id;
 
-                {/* User table */}
-                <div className="admin-body">
-                    {loading ? (
-                        <div className="admin-loading">Loading users...</div>
-                    ) : (
-                        <table className="users-table">
-                            <thead>
-                                <tr>
-                                    <th>User</th>
-                                    <th>Role</th>
-                                    <th>Assignments</th>
-                                    <th>Audits</th>
-                                    <th>Joined</th>
-                                    <th>Last Login</th>
-                                    {isAdmin && <th>Actions</th>}
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {users.map(u => {
-                                    const roleInfo = ROLE_CONFIG[u.role] || ROLE_CONFIG.normal;
-                                    const isSelf = u.id === user.id;
-                                    const isModerator = u.role === 'moderator';
-                                    const assignedCount = assignmentMap[u.id]?.size || 0;
-                                    const isExpanded = expandedModerator === u.id;
+                                return (
+                                    <React.Fragment key={u.id}>
+                                        <tr className={isSelf ? 'self-row' : ''}>
+                                            <td>
+                                                <div className="user-cell">
+                                                    <div className="table-avatar" style={{ background: roleInfo.bg, color: roleInfo.color }}>
+                                                        {u.username?.[0]?.toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <div className="table-username">
+                                                            {u.username}
+                                                            {isSelf && <span className="you-badge">you</span>}
+                                                        </div>
+                                                        <div className="table-email">{u.email}</div>
+                                                    </div>
+                                                </div>
+                                            </td>
 
-                                    return (
-                                        <React.Fragment key={u.id}>
-                                            <tr className={isSelf ? 'self-row' : ''}>
+                                            <td>
+                                                {isAdmin && !isSelf ? (
+                                                    <select
+                                                        className="role-select"
+                                                        value={u.role}
+                                                        onChange={(e) => handleRoleChange(u.id, e.target.value)}
+                                                        style={{ color: roleInfo.color, borderColor: roleInfo.color }}
+                                                    >
+                                                        <option value="normal">User</option>
+                                                        <option value="moderator">Moderator</option>
+                                                        <option value="admin">Admin</option>
+                                                    </select>
+                                                ) : (
+                                                    <span className="role-tag" style={{ color: roleInfo.color, background: roleInfo.bg }}>
+                                                        <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: '4px' }}>
+                                                            {roleInfo.icon}
+                                                        </span>
+                                                        {roleInfo.label}
+                                                    </span>
+                                                )}
+                                            </td>
+
+                                            <td>
+                                                {isModerator ? (
+                                                    <button
+                                                        className="assign-toggle"
+                                                        onClick={() => setExpandedModerator(prev => prev === u.id ? null : u.id)}
+                                                    >
+                                                        {assignedCount} assigned
+                                                        <span style={{ display: 'flex', marginLeft: '4px' }}>
+                                                            {isExpanded ? Icons.chevronUp : Icons.chevronDown}
+                                                        </span>
+                                                    </button>
+                                                ) : (
+                                                    <span className="assign-dash">—</span>
+                                                )}
+                                            </td>
+
+                                            <td className="text-center">{u.audit_count || 0}</td>
+                                            <td className="text-muted">{formatDate(u.created_at)}</td>
+                                            <td className="text-muted">{formatDate(u.last_login)}</td>
+
+                                            {isAdmin && (
                                                 <td>
-                                                    <div className="user-cell">
-                                                        <div className="table-avatar" style={{ background: roleInfo.bg, color: roleInfo.color }}>
-                                                            {u.username?.[0]?.toUpperCase()}
-                                                        </div>
-                                                        <div>
-                                                            <div className="table-username">
-                                                                {u.username}
-                                                                {isSelf && <span className="you-badge">you</span>}
+                                                    {!isSelf && (
+                                                        confirmDelete === u.id ? (
+                                                            <div className="confirm-delete">
+                                                                <span>Delete?</span>
+                                                                <button className="btn-confirm-yes" onClick={() => handleDelete(u.id)}>Yes</button>
+                                                                <button className="btn-confirm-no"  onClick={() => setConfirmDelete(null)}>No</button>
                                                             </div>
-                                                            <div className="table-email">{u.email}</div>
+                                                        ) : (
+                                                            <button
+                                                                className="btn-delete"
+                                                                onClick={() => setConfirmDelete(u.id)}
+                                                                title="Delete user"
+                                                            >
+                                                                {Icons.trash}
+                                                            </button>
+                                                        )
+                                                    )}
+                                                </td>
+                                            )}
+                                        </tr>
+
+                                        {isModerator && isExpanded && (
+                                            <tr className="assign-detail-row">
+                                                <td colSpan={totalCols}>
+                                                    <div className="assign-detail">
+                                                        <div className="assign-detail__title">
+                                                            Choose which users <strong>{u.username}</strong> can view audit data for
                                                         </div>
+
+                                                        {normalUsers.length === 0 ? (
+                                                            <div className="assign-empty">
+                                                                No normal users registered yet — once someone signs up as a regular user, they will appear here.
+                                                            </div>
+                                                        ) : (
+                                                            <div className="assign-checklist">
+                                                                {normalUsers.map(nu => {
+                                                                    const isAssigned = assignmentMap[u.id]?.has(nu.id) || false;
+                                                                    const key = `${u.id}-${nu.id}`;
+                                                                    const isBusy = toggling[key];
+
+                                                                    return (
+                                                                        <label
+                                                                            key={nu.id}
+                                                                            className={`assign-item ${isAssigned ? 'assign-item--checked' : ''} ${isBusy ? 'assign-item--busy' : ''}`}
+                                                                        >
+                                                                            <input
+                                                                                type="checkbox"
+                                                                                checked={isAssigned}
+                                                                                disabled={isBusy || !isAdmin}
+                                                                                onChange={() => toggleAssignment(u.id, nu.id, isAssigned)}
+                                                                            />
+                                                                            <span className="assign-item__avatar">
+                                                                                {nu.username?.[0]?.toUpperCase()}
+                                                                            </span>
+                                                                            <span className="assign-item__info">
+                                                                                <span className="assign-item__name">{nu.username}</span>
+                                                                                <span className="assign-item__email">{nu.email}</span>
+                                                                            </span>
+                                                                        </label>
+                                                                    );
+                                                                })}
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </td>
-
-                                                <td>
-                                                    {isAdmin && !isSelf ? (
-                                                        <select
-                                                            className="role-select"
-                                                            value={u.role}
-                                                            onChange={(e) => handleRoleChange(u.id, e.target.value)}
-                                                            style={{ color: roleInfo.color, borderColor: roleInfo.color }}
-                                                        >
-                                                            <option value="normal">User</option>
-                                                            <option value="moderator">Moderator</option>
-                                                            <option value="admin">Admin</option>
-                                                        </select>
-                                                    ) : (
-                                                        <span className="role-tag" style={{ color: roleInfo.color, background: roleInfo.bg }}>
-                                                            <span style={{ display: 'inline-flex', alignItems: 'center', marginRight: '4px' }}>
-                                                                {roleInfo.icon}
-                                                            </span>
-                                                            {roleInfo.label}
-                                                        </span>
-                                                    )}
-                                                </td>
-
-                                                <td>
-                                                    {isModerator ? (
-                                                        <button
-                                                            className="assign-toggle"
-                                                            onClick={() => setExpandedModerator(prev => prev === u.id ? null : u.id)}
-                                                        >
-                                                            {assignedCount} assigned
-                                                            <span style={{ display: 'flex', marginLeft: '4px' }}>
-                                                                {isExpanded ? Icons.chevronUp : Icons.chevronDown}
-                                                            </span>
-                                                        </button>
-                                                    ) : (
-                                                        <span className="assign-dash">—</span>
-                                                    )}
-                                                </td>
-
-                                                <td className="text-center">{u.audit_count || 0}</td>
-                                                <td className="text-muted">{formatDate(u.created_at)}</td>
-                                                <td className="text-muted">{formatDate(u.last_login)}</td>
-
-                                                {isAdmin && (
-                                                    <td>
-                                                        {!isSelf && (
-                                                            confirmDelete === u.id ? (
-                                                                <div className="confirm-delete">
-                                                                    <span>Delete?</span>
-                                                                    <button className="btn-confirm-yes" onClick={() => handleDelete(u.id)}>Yes</button>
-                                                                    <button className="btn-confirm-no"  onClick={() => setConfirmDelete(null)}>No</button>
-                                                                </div>
-                                                            ) : (
-                                                                <button
-                                                                    className="btn-delete"
-                                                                    onClick={() => setConfirmDelete(u.id)}
-                                                                    title="Delete user"
-                                                                >
-                                                                    {Icons.trash}
-                                                                </button>
-                                                            )
-                                                        )}
-                                                    </td>
-                                                )}
                                             </tr>
+                                        )}
+                                    </React.Fragment>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                )}
+            </div>
 
-                                            {isModerator && isExpanded && (
-                                                <tr className="assign-detail-row">
-                                                    <td colSpan={totalCols}>
-                                                        <div className="assign-detail">
-                                                            <div className="assign-detail__title">
-                                                                Choose which users <strong>{u.username}</strong> can view audit data for
-                                                            </div>
-
-                                                            {normalUsers.length === 0 ? (
-                                                                <div className="assign-empty">
-                                                                    No normal users registered yet — once someone signs up as a regular user, they will appear here.
-                                                                </div>
-                                                            ) : (
-                                                                <div className="assign-checklist">
-                                                                    {normalUsers.map(nu => {
-                                                                        const isAssigned = assignmentMap[u.id]?.has(nu.id) || false;
-                                                                        const key = `${u.id}-${nu.id}`;
-                                                                        const isBusy = toggling[key];
-
-                                                                        return (
-                                                                            <label
-                                                                                key={nu.id}
-                                                                                className={`assign-item ${isAssigned ? 'assign-item--checked' : ''} ${isBusy ? 'assign-item--busy' : ''}`}
-                                                                            >
-                                                                                <input
-                                                                                    type="checkbox"
-                                                                                    checked={isAssigned}
-                                                                                    disabled={isBusy || !isAdmin}
-                                                                                    onChange={() => toggleAssignment(u.id, nu.id, isAssigned)}
-                                                                                />
-                                                                                <span className="assign-item__avatar">
-                                                                                    {nu.username?.[0]?.toUpperCase()}
-                                                                                </span>
-                                                                                <span className="assign-item__info">
-                                                                                    <span className="assign-item__name">{nu.username}</span>
-                                                                                    <span className="assign-item__email">{nu.email}</span>
-                                                                                </span>
-                                                                            </label>
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            )}
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                            )}
-                                        </React.Fragment>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                    )}
-                </div>
-
-                {/* Legend */}
-                <div className="admin-footer">
-                    <div className="role-legend">
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: ROLE_CONFIG.normal.color, fontWeight: 600 }}>
-                            {Icons.user} User
-                        </span>
-                        — run audits, own history
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: ROLE_CONFIG.moderator.color, fontWeight: 600 }}>
-                            {Icons.moderator} Moderator
-                        </span>
-                        — + assigned users' audit data
-                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: ROLE_CONFIG.admin.color, fontWeight: 600 }}>
-                            {Icons.admin} Admin
-                        </span>
-                        — + manage accounts &amp; assignments
-                    </div>
+            {/* Legend */}
+            <div className="admin-footer">
+                <div className="role-legend">
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: ROLE_CONFIG.normal.color, fontWeight: 600 }}>
+                        {Icons.user} User
+                    </span>
+                    — run audits, own history
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: ROLE_CONFIG.moderator.color, fontWeight: 600 }}>
+                        {Icons.moderator} Moderator
+                    </span>
+                    — + assigned users' audit data
+                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: ROLE_CONFIG.admin.color, fontWeight: 600 }}>
+                        {Icons.admin} Admin
+                    </span>
+                    — + manage accounts &amp; assignments
                 </div>
             </div>
         </div>

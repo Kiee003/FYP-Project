@@ -106,7 +106,6 @@ The recommendations array should contain ONLY issues that are actually present i
         const score = metrics.scores?.performance || 0;
         const lcp = (metrics.metrics?.lcp || 0) / 1000;
         const fcp = (metrics.metrics?.fcp || 0) / 1000;
-        const ttfb = (metrics.metrics?.ttfb || 0) / 1000;
         const cls = metrics.metrics?.cls || 0;
         const tbt = (metrics.metrics?.tbt || 0) / 1000;
         const requests = metrics.requests?.total || 0;
@@ -123,7 +122,6 @@ The recommendations array should contain ONLY issues that are actually present i
 Performance Score: ${score}/100 (${rating})
 Largest Contentful Paint (LCP): ${lcp.toFixed(2)}s — target under 2.5s
 First Contentful Paint (FCP): ${fcp.toFixed(2)}s — target under 1.8s
-Time to First Byte (TTFB): ${ttfb === 0 ? 'Not measured' : ttfb.toFixed(2) + 's — target under 0.8s'}
 Cumulative Layout Shift (CLS): ${cls.toFixed(3)} — target under 0.1
 Total Blocking Time (TBT): ${tbt.toFixed(2)}s — target under 0.3s
 Total Network Requests: ${requests} — target under 50
@@ -174,7 +172,6 @@ Analyse these results honestly. Only flag metrics that are actually failing thei
         const score = metrics.scores?.performance || 0;
         const lcp = (metrics.metrics?.lcp || 0) / 1000;
         const fcp = (metrics.metrics?.fcp || 0) / 1000;
-        const ttfb = (metrics.metrics?.ttfb || 0) / 1000;
         const cls = metrics.metrics?.cls || 0;
         const tbt = (metrics.metrics?.tbt || 0) / 1000;
         const requests = metrics.requests?.total || 0;
@@ -184,7 +181,7 @@ Analyse these results honestly. Only flag metrics that are actually failing thei
         const recommendations = [];
 
         if (score >= 90) {
-            summary = `With a score of ${score}/100, this site loads fast and performs well across all metrics. The main content appears in ${lcp.toFixed(1)} seconds, which is comfortably within the 2.5s target. Visitors are unlikely to experience frustration or delays. The server responds in ${ttfb > 0 ? ttfb.toFixed(2) + 's' : 'a reasonable time'} and the page layout is stable${cls < 0.1 ? ', with no unexpected shifts' : ''}.`;
+            summary = `With a score of ${score}/100, this site loads fast and performs well across all metrics. The main content appears in ${lcp.toFixed(1)} seconds, which is comfortably within the 2.5s target. Visitors are unlikely to experience frustration or delays. The page layout is stable${cls < 0.1 ? ', with no unexpected shifts' : ''}.`;
             verdict = 'This site is fast and well-optimised — keep it up.';
         } else if (score >= 70) {
             summary = `A score of ${score}/100 is above average, but there is room to improve. The main content loads in ${lcp.toFixed(1)} seconds — just ${lcp > 2.5 ? 'above' : 'within'} the 2.5s target. Most visitors will find the site usable, but those on slower connections may notice delays. With ${requests} network requests, reducing file count could make a noticeable difference.`;
@@ -209,21 +206,6 @@ Analyse these results honestly. Only flag metrics that are actually failing thei
                     'Compress images using TinyPNG or Squoosh (free tools)',
                     'Convert images to WebP format for smaller file sizes',
                     'Preload your main image using <link rel="preload">'
-                ]
-            });
-        }
-
-        if (ttfb > 0.8 && ttfb !== 0) {
-            recommendations.push({
-                issue: `Server responds in ${ttfb.toFixed(2)}s`,
-                severity: ttfb > 2 ? 'critical' : 'warning',
-                plainEnglish: `Before a single pixel appears, your server takes ${ttfb.toFixed(2)} seconds to respond. A good server responds in under 0.8s.`,
-                simpleSuggestion: 'Enable server-side caching or consider upgrading your hosting plan.',
-                actionItems: [
-                    'Enable caching on your server or CMS',
-                    'Use Cloudflare (free tier) to cache responses closer to visitors',
-                    'Contact your host and ask about server response time optimisation',
-                    'Consider switching to a faster host if the problem persists'
                 ]
             });
         }

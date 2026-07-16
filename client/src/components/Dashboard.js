@@ -11,48 +11,19 @@ import AdminPanel from './AdminPanel';
 import Sidebar from './Sidebar';
 import './Dashboard.css';
 
-// SVG icons for panel header buttons
-const HistoryIcon = () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px', verticalAlign: 'middle' }}>
-        <polyline points="1 4 1 10 7 10"/>
-        <path d="M3.51 15a9 9 0 1 0 .49-4.5"/>
-        <polyline points="12 7 12 12 15 15"/>
-    </svg>
-);
-
-const GlobeIcon = () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px', verticalAlign: 'middle' }}>
-        <circle cx="12" cy="12" r="10"/>
-        <line x1="2" y1="12" x2="22" y2="12"/>
-        <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
-    </svg>
-);
-
-const BackIcon = () => (
-    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ marginRight: '5px', verticalAlign: 'middle' }}>
-        <polyline points="15 18 9 12 15 6"/>
-    </svg>
-);
-
-const CloseIcon = () => (
-    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" style={{ marginRight: '5px', verticalAlign: 'middle' }}>
-        <line x1="18" y1="6" x2="6" y2="18"/>
-        <line x1="6" y1="6" x2="18" y2="18"/>
-    </svg>
-);
-
 const Dashboard = () => {
+    // ── Audit state ───────────────────────────────────────────────────────────
+    // These live here in Dashboard, which never unmounts while you're logged in.
+    // Switching pages only hides the JSX — it does NOT reset this state, so your
+    // audit results are still on screen when you navigate back to Run Audit.
     const [url, setUrl] = useState('');
     const [loading, setLoading] = useState(false);
     const [results, setResults] = useState(null);
     const [error, setError] = useState(null);
-    const [activePanel, setActivePanel] = useState(null);
-    const [compareSubView, setCompareSubView] = useState('compare');
 
-    const handleSetActivePanel = (panel) => {
-        setActivePanel(panel);
-        setCompareSubView('compare');
-    };
+    // ── Navigation state ──────────────────────────────────────────────────────
+    // 'audit' | 'mywebsites' | 'compare' | 'crawler' | 'userdata' | 'accounts'
+    const [activePage, setActivePage] = useState('audit');
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -97,11 +68,6 @@ const Dashboard = () => {
                 if (value < 1800) return { color: '#28a745', status: 'Good',             icon: '●', bg: '#d4edda' };
                 if (value < 3000) return { color: '#ffc107', status: 'Needs Improvement',icon: '●', bg: '#fff3cd' };
                 return              { color: '#dc3545', status: 'Poor',                  icon: '●', bg: '#f8d7da' };
-            case 'ttfb':
-                if (value === 0)  return { color: '#999',    status: 'Not Measured',     icon: '○', bg: '#e9ecef' };
-                if (value < 800)  return { color: '#28a745', status: 'Good',             icon: '●', bg: '#d4edda' };
-                if (value < 1800) return { color: '#ffc107', status: 'Needs Improvement',icon: '●', bg: '#fff3cd' };
-                return              { color: '#dc3545', status: 'Poor',                  icon: '●', bg: '#f8d7da' };
             case 'cls':
                 if (value < 0.1)  return { color: '#28a745', status: 'Good',             icon: '●', bg: '#d4edda' };
                 if (value < 0.25) return { color: '#ffc107', status: 'Needs Improvement',icon: '●', bg: '#fff3cd' };
@@ -115,177 +81,148 @@ const Dashboard = () => {
         }
     };
 
-    const getPanelTitle = () => {
-        if (activePanel === 'compare') {
-            if (compareSubView === 'history')    return 'Audit History';
-            if (compareSubView === 'mywebsites') return 'My Audited Websites';
-            return 'Compare Performance';
-        }
-        const titles = {
-            crawler:  'URL Crawler',
-            userdata: 'User Audit Data',
-        };
-        return titles[activePanel] || '';
+    const PAGE_TITLES = {
+        mywebsites: 'Audited Website',
+        compare:    'Compare Performance',
+        crawler:    'URL Crawler',
+        userdata:   'User Audit Data',
+        accounts:   'Manage Accounts',
     };
 
     return (
         <div className="app-layout">
-            <Sidebar activePanel={activePanel} setActivePanel={handleSetActivePanel} />
+            <Sidebar activePage={activePage} onNavigate={setActivePage} />
 
             <main className="main-content">
-                <div className="dashboard-header">
-                    <h1>Web Performance Dashboard</h1>
-                    <p>Enter a URL to analyse performance with AI-powered insights</p>
-                </div>
 
-                <form onSubmit={handleSubmit} className="url-form">
-                    <input
-                        type="text"
-                        value={url}
-                        onChange={(e) => setUrl(e.target.value)}
-                        placeholder="https://example.com"
-                        disabled={loading}
-                    />
-                    <button type="submit" disabled={loading}>
-                        {loading ? 'Analysing...' : 'Run Audit'}
-                    </button>
-                </form>
+                {/* ═══════════════════════════════════════════════════════════
+                    RUN AUDIT PAGE
+                    Wrapped in .dashboard so it shares the same 1400px cap as
+                    every other page instead of sprawling on wide screens.
+                   ═══════════════════════════════════════════════════════════ */}
+                {activePage === 'audit' && (
+                    <div className="dashboard">
+                        <div className="dashboard-header">
+                            <h1>Web Performance Dashboard</h1>
+                            <p>Enter a URL to analyse performance with AI-powered insights</p>
+                        </div>
 
-                {error && (
-                    <div className="error-message">
-                        <svg style={{ marginRight: '8px', verticalAlign: 'middle', flexShrink: 0 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
-                            <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
-                        </svg>
-                        {error}
-                    </div>
-                )}
-                {loading && <LoadingIndicator message="Analysing website performance..." />}
+                        <form onSubmit={handleSubmit} className="url-form">
+                            <input
+                                type="text"
+                                value={url}
+                                onChange={(e) => setUrl(e.target.value)}
+                                placeholder="https://example.com"
+                                disabled={loading}
+                            />
+                            <button type="submit" disabled={loading}>
+                                {loading ? 'Analysing...' : 'Run Audit'}
+                            </button>
+                        </form>
 
-                {results && (
-                    <div className="results">
-                        <div className="metrics-grid">
-                            <div className="metric-card score-card">
-                                <h3>Performance Score</h3>
+                        {error && (
+                            <div className="error-message">
+                                <svg style={{ marginRight: '8px', verticalAlign: 'middle', flexShrink: 0 }} width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
+                                    <circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/>
+                                </svg>
+                                {error}
+                            </div>
+                        )}
+
+                        {loading && <LoadingIndicator message="Analysing website performance..." />}
+
+                        {results && (
+                            <div className="results">
+
+                                {/* Score banner — spans the full width so the top of the
+                                    page carries real information instead of empty space */}
                                 {(() => {
                                     const s = getMetricStatus('performance_score', results.scores.performance);
                                     return (
-                                        <>
-                                            <div className="score-circle" style={{
-                                                background: `conic-gradient(${s.color} ${results.scores.performance * 3.6}deg, #e0e0e0 0)`
-                                            }}>
+                                        <div className="score-banner">
+                                            <div
+                                                className="score-circle"
+                                                style={{ background: `conic-gradient(${s.color} ${results.scores.performance * 3.6}deg, #e0e0e0 0)` }}
+                                            >
                                                 <span style={{ color: s.color }}>{results.scores.performance}</span>
                                             </div>
-                                            <div className="metric-status" style={{ backgroundColor: s.bg, color: s.color }}>
-                                                {s.icon} {s.status}
+
+                                            <div className="score-banner__info">
+                                                <h3>Performance Score</h3>
+                                                <div className="metric-status" style={{ backgroundColor: s.bg, color: s.color }}>
+                                                    {s.icon} {s.status}
+                                                </div>
                                             </div>
-                                        </>
+
+                                            <div className="score-banner__meta">
+                                                <span className="score-banner__label">Audited URL</span>
+                                                <span className="score-banner__url" title={results.url}>{results.url}</span>
+                                            </div>
+                                        </div>
                                     );
                                 })()}
-                            </div>
 
-                            {[
-                                { key: 'lcp',  label: 'LCP',  full: 'Largest Contentful Paint', target: '< 2.5s', val: formatTime(results.metrics.lcp) },
-                                { key: 'fcp',  label: 'FCP',  full: 'First Contentful Paint',    target: '< 1.8s', val: formatTime(results.metrics.fcp) },
-                                { key: 'ttfb', label: 'TTFB', full: 'Time to First Byte',         target: '< 0.8s', val: results.metrics.ttfb === 0 ? 'N/A' : formatTime(results.metrics.ttfb) },
-                                { key: 'cls',  label: 'CLS',  full: 'Cumulative Layout Shift',    target: '< 0.1',  val: results.metrics.cls?.toFixed(3) || 0 },
-                                { key: 'tbt',  label: 'TBT',  full: 'Total Blocking Time',        target: '< 0.3s', val: formatTime(results.metrics.tbt) },
-                            ].map(m => {
-                                const s = getMetricStatus(m.key, results.metrics[m.key]);
-                                return (
-                                    <div className="metric-card" key={m.key}>
-                                        <h3>{m.label}</h3>
-                                        <div className="metric-value" style={{ color: s.color }}>{m.val}</div>
-                                        <div className="metric-status" style={{ backgroundColor: s.bg, color: s.color }}>
-                                            {s.icon} {s.status}
+                                {/* Core metrics — one row of five */}
+                                <div className="metrics-grid">
+                                    {[
+                                        { key: 'lcp', label: 'Largest Contentful Paint', target: '< 2.5s', val: formatTime(results.metrics.lcp) },
+                                        { key: 'fcp', label: 'First Contentful Paint',   target: '< 1.8s', val: formatTime(results.metrics.fcp) },
+                                        { key: 'cls', label: 'Cumulative Layout Shift',  target: '< 0.1',  val: results.metrics.cls?.toFixed(3) || 0 },
+                                        { key: 'tbt', label: 'Total Blocking Time',      target: '< 0.3s', val: formatTime(results.metrics.tbt) },
+                                    ].map(m => {
+                                        const s = getMetricStatus(m.key, results.metrics[m.key]);
+                                        return (
+                                            <div className="metric-card" key={m.key}>
+                                                <h3>{m.label}</h3>
+                                                <div className="metric-value" style={{ color: s.color }}>{m.val}</div>
+                                                <div className="metric-status" style={{ backgroundColor: s.bg, color: s.color }}>
+                                                    {s.icon} {s.status}
+                                                </div>
+                                                <p className="metric-target">Target: {m.target}</p>
+                                            </div>
+                                        );
+                                    })}
+
+                                    {/* Requests */}
+                                    <div className="metric-card">
+                                        <h3>Total Network Requests</h3>
+                                        <div className="metric-value" style={{ color: results.requests.total > 100 ? '#ffc107' : '#28a745' }}>
+                                            {results.requests.total}
                                         </div>
-                                        <p className="metric-label">{m.full}</p>
-                                        <p className="metric-target">Target: {m.target}</p>
+                                        <div className="metric-status" style={{
+                                            backgroundColor: results.requests.total > 100 ? '#fff3cd' : '#d4edda',
+                                            color: results.requests.total > 100 ? '#ffc107' : '#28a745'
+                                        }}>
+                                            {results.requests.total > 100 ? '● High' : '● Normal'}
+                                        </div>
+                                        <p className="metric-target">Ideal: {'< 50'}</p>
                                     </div>
-                                );
-                            })}
+                                </div>
 
-                            <div className="metric-card">
-                                <h3>Requests</h3>
-                                <div className="metric-value" style={{ color: results.requests.total > 100 ? '#ffc107' : '#28a745' }}>
-                                    {results.requests.total}
-                                </div>
-                                <div className="metric-status" style={{
-                                    backgroundColor: results.requests.total > 100 ? '#fff3cd' : '#d4edda',
-                                    color: results.requests.total > 100 ? '#ffc107' : '#28a745'
-                                }}>
-                                    {results.requests.total > 100 ? '● High' : '● Normal'}
-                                </div>
-                                <p className="metric-label">Total Network Requests</p>
-                                <p className="metric-target">Ideal: {'< 50'}</p>
+                                <AIInsights insights={results.aiInsights} loading={loading} error={null} />
+
+                                {/* Audit History for the URL that was just audited */}
+                                <AuditHistory url={results.url} />
                             </div>
-                        </div>
-
-                        <AIInsights insights={results.aiInsights} loading={loading} error={null} />
+                        )}
                     </div>
                 )}
 
-                {/* Standard panels share the panel-section wrapper.
-                    Manage Accounts is excluded — it renders as a floating modal below. */}
-                {activePanel && activePanel !== 'accounts' && (
-                    <div className="panel-section">
+                {/* ═══════════════════════════════════════════════════════════
+                    OTHER PAGES — each fills the content area on its own
+                   ═══════════════════════════════════════════════════════════ */}
+                {activePage !== 'audit' && (
+                    <div className="panel-section panel-section--page">
                         <div className="panel-section__header">
-                            <h2>{getPanelTitle()}</h2>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-
-                                {activePanel === 'compare' && compareSubView === 'compare' && (
-                                    <>
-                                        <button
-                                            className="panel-section__action"
-                                            onClick={() => setCompareSubView('history')}
-                                            title="View audit history for the current URL"
-                                        >
-                                            <HistoryIcon />
-                                            Audit History
-                                        </button>
-                                        <button
-                                            className="panel-section__action"
-                                            onClick={() => setCompareSubView('mywebsites')}
-                                            title="See all websites you have audited"
-                                        >
-                                            <GlobeIcon />
-                                            My Audited Websites
-                                        </button>
-                                    </>
-                                )}
-
-                                {activePanel === 'compare' && compareSubView !== 'compare' && (
-                                    <button
-                                        className="panel-section__action"
-                                        onClick={() => setCompareSubView('compare')}
-                                        title="Back to Compare Performance"
-                                    >
-                                        <BackIcon />
-                                        Back to Compare
-                                    </button>
-                                )}
-
-                                <button
-                                    className="panel-section__close"
-                                    onClick={() => handleSetActivePanel(null)}
-                                >
-                                    <CloseIcon />
-                                    Close
-                                </button>
-                            </div>
+                            <h2>{PAGE_TITLES[activePage] || ''}</h2>
                         </div>
 
-                        {activePanel === 'compare' && compareSubView === 'compare'    && <ComparisonView currentAuditId={results?.id} currentUrl={results?.url} />}
-                        {activePanel === 'compare' && compareSubView === 'history'    && <AuditHistory url={results?.url} />}
-                        {activePanel === 'compare' && compareSubView === 'mywebsites' && <MyAuditedWebsites />}
-
-                        {activePanel === 'crawler'  && <UrlCrawler />}
-                        {activePanel === 'userdata' && <UserAuditManager />}
+                        {activePage === 'mywebsites' && <MyAuditedWebsites />}
+                        {activePage === 'compare'    && <ComparisonView currentAuditId={results?.id} currentUrl={results?.url} />}
+                        {activePage === 'crawler'    && <UrlCrawler />}
+                        {activePage === 'userdata'   && <UserAuditManager />}
+                        {activePage === 'accounts'   && <AdminPanel />}
                     </div>
-                )}
-
-                {/* Manage Accounts — floating modal, independent of panel-section */}
-                {activePanel === 'accounts' && (
-                    <AdminPanel onClose={() => handleSetActivePanel(null)} />
                 )}
             </main>
         </div>

@@ -28,6 +28,38 @@ function canAccessAudit(audit, user) {
     return audit.user_id === user.id;
 }
 
+// ── CSV helpers ───────────────────────────────────────────────────────────────
+
+// Wrap a value as a CSV cell — escape quotes and flatten newlines so the file
+// opens cleanly in Excel and any standard CSV parser.
+function csvCell(value) {
+    const text = String(value ?? '').replace(/\r?\n/g, ' ').trim();
+    return `"${text.replace(/"/g, '""')}"`;
+}
+
+// ai_recommendations is stored as a JSON string. Flatten it into one readable
+// cell: "1. [CRITICAL] Issue Why: ... Fix: ... Steps: a; b || 2. [WARNING] ..."
+function formatRecommendationsForCsv(raw) {
+    if (!raw) return '';
+    let recs;
+    try {
+        recs = JSON.parse(raw);
+    } catch {
+        return '';
+    }
+    if (!Array.isArray(recs) || recs.length === 0) return '';
+
+    return recs.map((r, i) => {
+        const parts = [`${i + 1}. [${(r.severity || 'info').toUpperCase()}] ${r.issue || ''}`];
+        if (r.plainEnglish)     parts.push(`Why: ${r.plainEnglish}`);
+        if (r.simpleSuggestion) parts.push(`Fix: ${r.simpleSuggestion}`);
+        if (Array.isArray(r.actionItems) && r.actionItems.length > 0) {
+            parts.push(`Steps: ${r.actionItems.join('; ')}`);
+        }
+        return parts.join(' ');
+    }).join(' || ');
+}
+
 // ============================================
 // MAIN AUDIT ENDPOINT — all authenticated users
 // ============================================
@@ -126,7 +158,8 @@ router.get('/audits', verifyToken, requireMinRole('moderator'), async (req, res)
         let audits;
 
         if (req.user.role === 'admin') {
-            audits = database.getAllAudits(limit);
+            // Everyone else's audits — other admins included, but not their own
+            audits = database.getAllAudits(limit, req.user.id);
         } else {
             // Moderator — restrict to assigned users only
             const assignedUserIds = database.getAssignedUserIds(req.user.id);
@@ -249,10 +282,10 @@ router.get('/trend/:url', verifyToken, async (req, res) => {
             }).reverse(),
             scores: history.map(audit => audit.performance_score).reverse(),
             lcp:    history.map(audit => (audit.lcp / 1000).toFixed(2)).reverse(),
-            fcp:    history.map(audit => (audit.fcp / 1000).toFixed(2)).reverse(),
-            ttfb:   history.map(audit => (audit.ttfb / 1000).toFixed(2)).reverse(),
+            fcp:    history.map(audit => (audit.fcp / 1000).toFixed(2)).reverse(), 
             cls:    history.map(audit => audit.cls?.toFixed(3) || 0).reverse(),
             tbt:    history.map(audit => (audit.tbt / 1000).toFixed(2)).reverse(),
+            requests: history.map(audit => audit.requests || 0).reverse(),
         };
 
         res.json({ success: true, data: trendData, historyCount: history.length });
@@ -292,13 +325,14 @@ router.get('/export/csv/:id', verifyToken, async (req, res) => {
             return res.status(403).json({ success: false, error: 'You do not have access to this audit' });
         }
 
-        const headers = ['id','url','timestamp','performance_score','lcp(s)','fcp(s)','ttfb(s)','cls','tbt(s)','requests','ai_summary'];
+        const headers = ['id','url','timestamp','performance_score','lcp(s)','fcp(s)','cls','tbt(s)','requests','ai_summary','ai_recommendations'];
         const row = [
-            audit.id, audit.url, audit.created_at, audit.performance_score,
+            audit.id, csvCell(audit.url), audit.created_at, audit.performance_score,
             (audit.lcp / 1000).toFixed(2), (audit.fcp / 1000).toFixed(2),
-            (audit.ttfb / 1000).toFixed(2), audit.cls,
+            audit.cls,
             (audit.tbt / 1000).toFixed(2), audit.requests,
-            `"${(audit.ai_summary || '').replace(/"/g, '""')}"`
+            csvCell(audit.ai_summary),
+            csvCell(formatRecommendationsForCsv(audit.ai_recommendations)),
         ];
 
         const csv = [headers.join(','), row.join(',')].join('\n');
@@ -323,12 +357,14 @@ router.get('/export/url/:url/csv', verifyToken, async (req, res) => {
             return res.status(404).json({ success: false, error: 'No audits found' });
         }
 
-        const headers = ['id','timestamp','performance_score','lcp(s)','fcp(s)','ttfb(s)','cls','tbt(s)','requests'];
+        const headers = ['id','timestamp','performance_score','lcp(s)','fcp(s)','ttfb(s)','cls','tbt(s)','requests','ai_summary','ai_recommendations'];
         const rows = history.map(audit => [
             audit.id, audit.created_at, audit.performance_score,
             (audit.lcp / 1000).toFixed(2), (audit.fcp / 1000).toFixed(2),
-            (audit.ttfb / 1000).toFixed(2), audit.cls?.toFixed(3) || 0,
-            (audit.tbt / 1000).toFixed(2), audit.requests
+            audit.cls?.toFixed(3) || 0,
+            (audit.tbt / 1000).toFixed(2), audit.requests,
+            csvCell(audit.ai_summary),
+            csvCell(formatRecommendationsForCsv(audit.ai_recommendations)),
         ]);
 
         const csv = [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -388,7 +424,6 @@ router.post('/compare', verifyToken, async (req, res) => {
                 performance_score: audit.performance_score,
                 lcp:  (audit.lcp / 1000).toFixed(2),
                 fcp:  (audit.fcp / 1000).toFixed(2),
-                ttfb: (audit.ttfb / 1000).toFixed(2),
                 cls:  audit.cls?.toFixed(3) || 0,
                 tbt:  (audit.tbt / 1000).toFixed(2),
                 requests: audit.requests
